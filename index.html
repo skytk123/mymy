@@ -353,29 +353,98 @@ function draw(){
  ctx.stroke();
  ctx.globalAlpha=1;
 
- /* 꽃 */
- obstacles.forEach(obj=>{
-  if(obj.type==="flower"){
-   let cx=obj.x+40;
-   let cy=obj.y+40;
-   ctx.fillStyle="#ff69b4";
-   for(let i=0;i<8;i++){
-    let a=Math.PI*2/8*i;
+ /* 나무 장애물 */
+obstacles.forEach(obj=>{
+  if(obj.type==="flower"){  // 타입은 그대로 사용
+
+    // ===== 줄기 =====
+    ctx.fillStyle="#6b3e26";
+    ctx.fillRect(obj.x+30, obj.y+60, 20, obj.height-60);
+
+    // ===== 잎 (큰 삼각형) =====
+    ctx.fillStyle="#0b6623";
     ctx.beginPath();
-    ctx.arc(cx+Math.cos(a)*25,
-            cy+Math.sin(a)*25,
-            20,0,Math.PI*2);
+    ctx.moveTo(obj.x+40, obj.y);           // 꼭대기
+    ctx.lineTo(obj.x, obj.y+80);           // 왼쪽 아래
+    ctx.lineTo(obj.x+80, obj.y+80);        // 오른쪽 아래
+    ctx.closePath();
     ctx.fill();
-   }
-   ctx.fillStyle="yellow";
-   ctx.beginPath();
-   ctx.arc(cx,cy,18,0,Math.PI*2);
-   ctx.fill();
-  }else{
-   ctx.fillStyle="purple";
-   ctx.fillRect(obj.x,obj.y,obj.width,obj.height);
+
+    // ===== 중간 잎 =====
+    ctx.fillStyle="#228B22";
+    ctx.beginPath();
+    ctx.moveTo(obj.x+40, obj.y+20);
+    ctx.lineTo(obj.x+10, obj.y+90);
+    ctx.lineTo(obj.x+70, obj.y+90);
+    ctx.closePath();
+    ctx.fill();
+
+    // ===== 아래 잎 =====
+    ctx.fillStyle="#2e8b57";
+    ctx.beginPath();
+    ctx.moveTo(obj.x+40, obj.y+40);
+    ctx.lineTo(obj.x+20, obj.y+110);
+    ctx.lineTo(obj.x+60, obj.y+110);
+    ctx.closePath();
+    ctx.fill();
+
+  } else{
+
+  let cx = obj.x + obj.width/2;
+  let cy = obj.y + obj.height/2;
+
+  // ===== 몸통 =====
+  ctx.fillStyle = "#4b0082";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, obj.width/2, obj.height/2, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // ===== 눈 흰자 =====
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(cx-15, cy-20, 12, 0, Math.PI*2);
+  ctx.arc(cx+15, cy-20, 12, 0, Math.PI*2);
+  ctx.fill();
+
+  // ===== 눈동자 =====
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(cx-15, cy-20, 6, 0, Math.PI*2);
+  ctx.arc(cx+15, cy-20, 6, 0, Math.PI*2);
+  ctx.fill();
+
+  // ===== 입 =====
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(cx, cy+10, 20, 0, Math.PI);
+  ctx.fill();
+
+  // ===== 이빨 =====
+  ctx.fillStyle = "white";
+  for(let i=0;i<5;i++){
+    ctx.beginPath();
+    ctx.moveTo(cx-20+i*10, cy+10);
+    ctx.lineTo(cx-15+i*10, cy+25);
+    ctx.lineTo(cx-10+i*10, cy+10);
+    ctx.fill();
   }
- });
+
+  // ===== 왼쪽 뿔 =====
+  ctx.fillStyle = "#222";
+  ctx.beginPath();
+  ctx.moveTo(cx-25, obj.y);
+  ctx.lineTo(cx-10, obj.y-30);
+  ctx.lineTo(cx-5, obj.y);
+  ctx.fill();
+
+  // ===== 오른쪽 뿔 =====
+  ctx.beginPath();
+  ctx.moveTo(cx+25, obj.y);
+  ctx.lineTo(cx+10, obj.y-30);
+  ctx.lineTo(cx+5, obj.y);
+  ctx.fill();
+}
+});
 
  /* 아이템 */
  items.forEach(item=>{
