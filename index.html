@@ -5,24 +5,44 @@
 <title>Fantasy Runner Final</title>
 <style>
 body{margin:0;overflow:hidden;background:#bdeaff;}
-canvas{display:block;}
+canvas{display:block;margin:0 auto;background:#87ceeb;}
+
 .controls{
  position:fixed;
- bottom:20px;
- width:100%;
+ bottom:15px;
+ left:50%;
+ transform:translateX(-50%);
  display:flex;
- justify-content:center;
- gap:20px;
+ gap:30px;
 }
+
 button{
  width:70px;
  height:70px;
  font-size:24px;
  border-radius:50%;
 }
+
+#rotateMessage{
+ position:fixed;
+ top:0;
+ left:0;
+ width:100%;
+ height:100%;
+ background:black;
+ color:white;
+ display:none;
+ justify-content:center;
+ align-items:center;
+ text-align:center;
+ font-size:24px;
+ z-index:999;
+}
 </style>
 </head>
 <body>
+
+<div id="rotateMessage">📱 가로로 돌려주세요</div>
 
 <canvas id="game"></canvas>
 
@@ -33,13 +53,30 @@ button{
 </div>
 
 <script>
+/* ---------- 고정 해상도 ---------- */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+
+let baseWidth=1000;
+let baseHeight=600;
+canvas.width=baseWidth;
+canvas.height=baseHeight;
+canvas.style.width="100vw";
+canvas.style.height="100vh";
+
+/* ---------- 방향 체크 ---------- */
+function checkOrientation(){
+ if(window.innerHeight>window.innerWidth){
+  rotateMessage.style.display="flex";
+ }else{
+  rotateMessage.style.display="none";
+ }
+}
+window.addEventListener("resize",checkOrientation);
+checkOrientation();
 
 /* ---------- 변수 ---------- */
-let gravity=0.6;
+let gravity=0.45;
 let stage=1;
 let score=0;
 let totalScore=0;
@@ -64,7 +101,7 @@ let keys={left:false,right:false};
 
 let player={
  x:200,
- y:canvas.height-150,
+ y:baseHeight-150,
  width:60,
  height:60,
  velocityY:0,
@@ -102,8 +139,8 @@ function startStage(){
  if(stage===5||stage===10){
   bossMode=true;
   boss={
-   x:canvas.width+300,
-   y:canvas.height-250,
+   x:baseWidth+300,
+   y:baseHeight-250,
    width:200,
    height:200,
    health:5,
@@ -114,7 +151,7 @@ function startStage(){
   };
  }
 
- player.y=canvas.height-150;
+ player.y=baseHeight-150;
  player.velocityY=0;
  player.jumpCount=0;
 }
@@ -123,25 +160,25 @@ initGame();
 
 /* ---------- 입력 ---------- */
 function jump(){
- if(gameOver){
-  initGame();
-  return;
- }
- if(!gameActive) return;
- if(player.jumpCount<2){
-  player.velocityY=-15;
+ if(gameOver){initGame();return;}
+ if(!gameActive)return;
+
+ if(player.jumpCount<3){
+  if(player.jumpCount===0) player.velocityY=-18;
+  else if(player.jumpCount===1) player.velocityY=-17;
+  else player.velocityY=-15;
   player.jumpCount++;
  }
 }
 
 document.addEventListener("keydown",e=>{
- if(e.key==="ArrowLeft") keys.left=true;
- if(e.key==="ArrowRight") keys.right=true;
- if(e.key===" "||e.key==="ArrowUp") jump();
+ if(e.key==="ArrowLeft")keys.left=true;
+ if(e.key==="ArrowRight")keys.right=true;
+ if(e.key===" "||e.key==="ArrowUp")jump();
 });
 document.addEventListener("keyup",e=>{
- if(e.key==="ArrowLeft") keys.left=false;
- if(e.key==="ArrowRight") keys.right=false;
+ if(e.key==="ArrowLeft")keys.left=false;
+ if(e.key==="ArrowRight")keys.right=false;
 });
 
 left.ontouchstart=()=>keys.left=true;
@@ -152,17 +189,16 @@ jumpBtn.ontouchstart=jump;
 
 /* ---------- 생성 ---------- */
 function spawnObstacle(){
- if(bossMode) return;
- if(stageObstacleCount>=10) return;
+ if(bossMode)return;
+ if(stageObstacleCount>=10)return;
 
  let type=stageObstacleCount<5?"flower":"monster";
  let height=type==="flower"?80:200;
-
- let lastX=obstacles.length>0?obstacles[obstacles.length-1].x:canvas.width;
+ let lastX=obstacles.length>0?obstacles[obstacles.length-1].x:baseWidth;
 
  obstacles.push({
   x:lastX+spacing,
-  y:canvas.height-50-height,
+  y:baseHeight-50-height,
   width:80,
   height:height,
   type:type,
@@ -174,11 +210,11 @@ function spawnObstacle(){
 }
 
 function spawnItem(){
- if(Math.random()<0.01){
+ if(Math.random()<0.02){
   let type=Math.random()<0.5?"heart":"shield";
   items.push({
-   x:canvas.width+200,
-   y:canvas.height-200-Math.random()*200,
+   x:baseWidth+100,
+   y:Math.random()*(baseHeight-200),
    width:40,
    height:40,
    type:type
@@ -188,30 +224,30 @@ function spawnItem(){
 
 /* ---------- 업데이트 ---------- */
 function update(){
- if(!gameActive) return;
+ if(!gameActive)return;
 
- if(keys.left) player.x-=player.speed;
- if(keys.right) player.x+=player.speed;
+ if(keys.left)player.x-=player.speed;
+ if(keys.right)player.x+=player.speed;
 
- if(player.x<0) player.x=0;
- if(player.x+player.width>canvas.width)
-  player.x=canvas.width-player.width;
+ if(player.x<0)player.x=0;
+ if(player.x+player.width>baseWidth)
+  player.x=baseWidth-player.width;
 
  player.velocityY+=gravity;
  player.y+=player.velocityY;
 
- if(player.y+player.height>=canvas.height-50){
-  player.y=canvas.height-50-player.height;
+ if(player.y+player.height>=baseHeight-50){
+  player.y=baseHeight-50-player.height;
   player.jumpCount=0;
  }
 
  if(invincible){
   invincibleTimer--;
-  if(invincibleTimer<=0) invincible=false;
+  if(invincibleTimer<=0)invincible=false;
  }
 
  if(obstacles.length===0||
-  obstacles[obstacles.length-1].x<canvas.width-spacing){
+   obstacles[obstacles.length-1].x<baseWidth-spacing){
   spawnObstacle();
  }
 
@@ -220,19 +256,14 @@ function update(){
  obstacles.forEach(obj=>{
   obj.x-=gameSpeed;
 
-  if(
-   player.x<obj.x+obj.width &&
-   player.x+player.width>obj.x &&
-   player.y<obj.y+obj.height &&
-   player.y+player.height>obj.y
-  ){
+  if(player.x<obj.x+obj.width &&
+     player.x+player.width>obj.x &&
+     player.y<obj.y+obj.height &&
+     player.y+player.height>obj.y){
    if(!obj.hit&&!invincible){
     obj.hit=true;
     health--;
-    if(health<=0){
-     gameActive=false;
-     gameOver=true;
-    }
+    if(health<=0){gameActive=false;gameOver=true;}
    }
   }
 
@@ -246,13 +277,11 @@ function update(){
  items.forEach(item=>{
   item.x-=gameSpeed;
 
-  if(
-   player.x<item.x+item.width &&
-   player.x+player.width>item.x &&
-   player.y<item.y+item.height &&
-   player.y+player.height>item.y
-  ){
-   if(item.type==="heart"&&health<3) health++;
+  if(player.x<item.x+item.width &&
+     player.x+player.width>item.x &&
+     player.y<item.y+item.height &&
+     player.y+player.height>item.y){
+   if(item.type==="heart"&&health<3)health++;
    if(item.type==="shield"){
     invincible=true;
     invincibleTimer=180;
@@ -260,103 +289,9 @@ function update(){
    item.remove=true;
   }
  });
-
  items=items.filter(i=>!i.remove);
 
- /* ----- 보스 ----- */
- if(bossMode&&boss){
-  boss.x-=gameSpeed;
-
-  boss.jumpCooldown--;
-  if(boss.jumpCooldown<=0){
-   boss.velocityY=-20;
-   boss.jumpCooldown=120;
-  }
-
-  boss.velocityY+=gravity;
-  boss.y+=boss.velocityY;
-
-  if(boss.y+boss.height>=canvas.height-50){
-   boss.y=canvas.height-50-boss.height;
-   boss.velocityY=0;
-  }
-
-  boss.dashCooldown--;
-  if(boss.dashCooldown<=0){
-   boss.dashing=true;
-   boss.dashCooldown=200;
-  }
-
-  if(boss.dashing){
-   boss.x-=10;
-   if(boss.x<player.x-300) boss.dashing=false;
-  }
-
-  let phase2=boss.health<=2;
-
-  if(phase2&&Math.random()<0.03){
-   fireballs.push({
-    x:boss.x+boss.width/2,
-    y:boss.y+boss.height,
-    radius:15,
-    velocityY:6
-   });
-  }
-
-  if(
-   player.x<boss.x+boss.width &&
-   player.x+player.width>boss.x &&
-   player.y<boss.y+boss.height &&
-   player.y+player.height>boss.y
-  ){
-   if(player.velocityY>0 &&
-     player.y+player.height-20<boss.y){
-     boss.health--;
-     player.velocityY=-18;
-
-     if(boss.health<=0){
-      bossMode=false;
-      stage++;
-      if(stage>maxStage){
-       ending=true;
-       gameActive=false;
-      }else{
-       startStage();
-      }
-     }
-   }
-   else if(!invincible){
-    health--;
-    if(health<=0){
-     gameActive=false;
-     gameOver=true;
-    }
-   }
-  }
- }
-
- fireballs.forEach(f=>{
-  f.y+=f.velocityY;
-  if(
-   player.x<f.x+f.radius &&
-   player.x+player.width>f.x-f.radius &&
-   player.y<f.y+f.radius &&
-   player.y+player.height>f.y-f.radius
-  ){
-   if(!invincible){
-    health--;
-    if(health<=0){
-     gameActive=false;
-     gameOver=true;
-    }
-   }
-   f.remove=true;
-  }
-  if(f.y>canvas.height) f.remove=true;
- });
-
- fireballs=fireballs.filter(f=>!f.remove);
-
+ /* 스테이지 진행 */
  if(score>=10&&!bossMode){
   stage++;
   if(stage>maxStage){
@@ -370,43 +305,38 @@ function update(){
 
 /* ---------- 그리기 ---------- */
 function draw(){
- ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.clearRect(0,0,baseWidth,baseHeight);
 
  if(ending){
   ctx.fillStyle="black";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0,0,baseWidth,baseHeight);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("THE END",canvas.width/2-120,canvas.height/2-60);
+  ctx.fillText("THE END",400,250);
   ctx.font="30px Arial";
-  ctx.fillText("Final Score: "+totalScore,
-   canvas.width/2-100,canvas.height/2);
-  ctx.fillText("Refresh to Play Again",
-   canvas.width/2-120,canvas.height/2+60);
+  ctx.fillText("Final Score: "+totalScore,380,300);
+  ctx.fillText("Refresh to Play Again",350,350);
   return;
  }
 
  if(gameOver){
   ctx.fillStyle="rgba(0,0,0,0.7)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0,0,baseWidth,baseHeight);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("GAME OVER",
-   canvas.width/2-150,canvas.height/2-40);
+  ctx.fillText("GAME OVER",380,250);
   ctx.font="25px Arial";
-  ctx.fillText("Tap or Press Space to Restart",
-   canvas.width/2-170,canvas.height/2+20);
+  ctx.fillText("Tap or Press Space to Restart",330,300);
   return;
  }
 
  ctx.fillStyle="green";
- ctx.fillRect(0,canvas.height-50,canvas.width,50);
+ ctx.fillRect(0,baseHeight-50,baseWidth,50);
 
  /* 플레이어 얼굴 */
  if(invincible){
   ctx.globalAlpha=0.5+Math.sin(Date.now()*0.02)*0.5;
  }
-
  ctx.fillStyle="#ffcc99";
  ctx.beginPath();
  ctx.arc(player.x+30,player.y+30,30,0,Math.PI*2);
@@ -421,7 +351,6 @@ function draw(){
  ctx.beginPath();
  ctx.arc(player.x+30,player.y+35,10,0,Math.PI);
  ctx.stroke();
-
  ctx.globalAlpha=1;
 
  /* 꽃 */
@@ -448,20 +377,19 @@ function draw(){
   }
  });
 
- /* 보스 */
- if(bossMode&&boss){
-  ctx.fillStyle="darkred";
-  ctx.fillRect(boss.x,boss.y,boss.width,boss.height);
-  ctx.fillStyle="white";
-  ctx.fillText("Boss HP:"+boss.health,
-   boss.x,boss.y-10);
- }
-
- fireballs.forEach(f=>{
-  ctx.fillStyle="orange";
-  ctx.beginPath();
-  ctx.arc(f.x,f.y,f.radius,0,Math.PI*2);
-  ctx.fill();
+ /* 아이템 */
+ items.forEach(item=>{
+  if(item.type==="heart"){
+   ctx.fillStyle="red";
+   ctx.beginPath();
+   ctx.arc(item.x+15,item.y+15,15,0,Math.PI*2);
+   ctx.fill();
+  }else{
+   ctx.fillStyle="gold";
+   ctx.beginPath();
+   ctx.arc(item.x+15,item.y+15,15,0,Math.PI*2);
+   ctx.fill();
+  }
  });
 
  ctx.fillStyle="black";
