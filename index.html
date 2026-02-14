@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner</title>
+<title>Fantasy Runner Stage</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -15,8 +15,8 @@ canvas{display:block;margin:0 auto;background:#87ceeb;}
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-const WIDTH=1000;
-const HEIGHT=600;
+const WIDTH=800;
+const HEIGHT=450;
 
 canvas.width=WIDTH;
 canvas.height=HEIGHT;
@@ -28,9 +28,9 @@ let health=3;
 let gameSpeed=4;
 
 let obstacles=[];
-let items=[];
+let obstacleCount=0;
 let spawnTimer=0;
-let spawnDelay=120;
+let spawnDelay=60;
 
 let invincible=false;
 let invTimer=0;
@@ -39,13 +39,14 @@ let invTimer=0;
 
 class Player{
  constructor(){
-  this.x=200;
-  this.width=60;
-  this.height=80;
-  this.y=HEIGHT-50-this.height;
+  this.x=150;
+  this.width=40;
+  this.height=60;
+  this.y=HEIGHT-40-this.height;
   this.vy=0;
-  this.gravity=0.32;
-  this.maxFall=5.5;
+
+  this.gravity=0.8;
+  this.maxFall=15;
   this.jumpCount=0;
  }
 
@@ -55,8 +56,8 @@ class Player{
 
   this.y+=this.vy;
 
-  if(this.y+this.height>=HEIGHT-50){
-   this.y=HEIGHT-50-this.height;
+  if(this.y+this.height>=HEIGHT-40){
+   this.y=HEIGHT-40-this.height;
    this.vy=0;
    this.jumpCount=0;
   }
@@ -64,16 +65,37 @@ class Player{
 
  jump(){
   if(this.jumpCount<2){
-   this.vy=-14;
+   this.vy=-17;
    this.jumpCount++;
   }
  }
 
  draw(){
+
   if(invincible) ctx.globalAlpha=0.6;
 
+  // 그림자
+  ctx.fillStyle="rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(this.x+20,HEIGHT-30,20,8,0,0,Math.PI*2);
+  ctx.fill();
+
+  // 몸통
   ctx.fillStyle="#3498db";
-  ctx.fillRect(this.x,this.y,this.width,this.height);
+  ctx.fillRect(this.x+10,this.y+25,20,25);
+
+  // 머리
+  ctx.fillStyle="#ffcc99";
+  ctx.beginPath();
+  ctx.arc(this.x+20,this.y+15,15,0,Math.PI*2);
+  ctx.fill();
+
+  // 눈
+  ctx.fillStyle="black";
+  ctx.beginPath();
+  ctx.arc(this.x+15,this.y+12,2,0,Math.PI*2);
+  ctx.arc(this.x+25,this.y+12,2,0,Math.PI*2);
+  ctx.fill();
 
   ctx.globalAlpha=1;
  }
@@ -85,41 +107,64 @@ let player=new Player();
 
 class Obstacle{
  constructor(){
-  this.width=60;
-  this.height=Math.random()>0.5?80:50;
-  this.x=WIDTH+Math.random()*400+200;
-  this.y=HEIGHT-50-this.height;
+  this.width=40;
+  this.height=50;
+  this.x=WIDTH+Math.random()*200+150;
+  this.type = obstacleCount<5 ? "tree" : "monster";
+  obstacleCount++;
  }
 
  update(){ this.x-=gameSpeed; }
 
  draw(){
-  ctx.fillStyle="#2c3e50";
-  ctx.fillRect(this.x,this.y,this.width,this.height);
+
+  if(this.type==="tree"){
+   // 줄기
+   ctx.fillStyle="#8B4513";
+   ctx.fillRect(this.x+15,HEIGHT-40-30,10,30);
+
+   // 잎
+   ctx.fillStyle="green";
+   ctx.beginPath();
+   ctx.moveTo(this.x+20,HEIGHT-120);
+   ctx.lineTo(this.x,this.y+20);
+   ctx.lineTo(this.x+40,this.y+20);
+   ctx.closePath();
+   ctx.fill();
+  }
+  else{
+   // 괴물
+   ctx.fillStyle="purple";
+   ctx.beginPath();
+   ctx.arc(this.x+20,HEIGHT-60,20,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle="white";
+   ctx.beginPath();
+   ctx.arc(this.x+14,HEIGHT-65,5,0,Math.PI*2);
+   ctx.arc(this.x+26,HEIGHT-65,5,0,Math.PI*2);
+   ctx.fill();
+  }
+ }
+
+ get y(){
+  return HEIGHT-40-this.height;
  }
 }
 
 /* ================= INPUT ================= */
 
-function handleStartOrRestart(){
- startGame();
-}
-
 canvas.addEventListener("touchend",()=>{
- if(state==="intro" || state==="gameover"){
-  handleStartOrRestart();
- }else if(state==="play"){
-  player.jump();
- }
+ if(state==="intro"){ startGame(); return; }
+ if(state==="play"){ player.jump(); }
+ if(state==="gameover"){ startGame(); }
 });
 
 document.addEventListener("keydown",e=>{
- if(e.code==="Space" || e.code==="Enter"){
-  if(state==="intro" || state==="gameover"){
-   handleStartOrRestart();
-  }else if(state==="play"){
-   player.jump();
-  }
+ if(e.code==="Space"){
+  if(state==="intro"){ startGame(); return; }
+  if(state==="play"){ player.jump(); }
+  if(state==="gameover"){ startGame(); }
  }
 });
 
@@ -128,11 +173,10 @@ document.addEventListener("keydown",e=>{
 function startGame(){
  health=3;
  obstacles=[];
- items=[];
+ obstacleCount=0;
  spawnTimer=0;
- spawnDelay=60;
+ spawnDelay=30;
  invincible=false;
- invTimer=0;
  state="play";
 }
 
@@ -147,7 +191,7 @@ function update(){
   spawnDelay--;
  }else{
   spawnTimer++;
-  if(spawnTimer>100){
+  if(spawnTimer>80){
    obstacles.push(new Obstacle());
    spawnTimer=0;
   }
@@ -156,9 +200,9 @@ function update(){
  obstacles.forEach(o=>o.update());
 
  obstacles.forEach(o=>{
-  if(player.x<o.x+o.width &&
+  if(player.x<o.x+40 &&
      player.x+player.width>o.x &&
-     player.y<o.y+o.height &&
+     player.y<o.y+50 &&
      player.y+player.height>o.y &&
      !invincible){
 
@@ -166,9 +210,7 @@ function update(){
    invincible=true;
    invTimer=60;
 
-   if(health<=0){
-    state="gameover";
-   }
+   if(health<=0) state="gameover";
   }
  });
 
@@ -189,8 +231,8 @@ function draw(){
   ctx.fillStyle="black";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
   ctx.fillStyle="white";
-  ctx.font="40px Arial";
-  ctx.fillText("TAP OR SPACE TO START",250,300);
+  ctx.font="30px Arial";
+  ctx.fillText("TAP OR SPACE TO START",200,200);
   return;
  }
 
@@ -198,11 +240,11 @@ function draw(){
   ctx.fillStyle="black";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
   ctx.fillStyle="red";
-  ctx.font="50px Arial";
-  ctx.fillText("GAME OVER",330,280);
+  ctx.font="40px Arial";
+  ctx.fillText("GAME OVER",250,200);
   ctx.fillStyle="white";
-  ctx.font="25px Arial";
-  ctx.fillText("Tap or Space to Restart",300,330);
+  ctx.font="20px Arial";
+  ctx.fillText("Tap or Space to Restart",230,240);
   return;
  }
 
@@ -210,7 +252,7 @@ function draw(){
  ctx.fillRect(0,0,WIDTH,HEIGHT);
 
  ctx.fillStyle="green";
- ctx.fillRect(0,HEIGHT-50,WIDTH,50);
+ ctx.fillRect(0,HEIGHT-40,WIDTH,40);
 
  obstacles.forEach(o=>o.draw());
  player.draw();
@@ -218,7 +260,7 @@ function draw(){
  for(let i=0;i<health;i++){
   ctx.fillStyle="red";
   ctx.beginPath();
-  ctx.arc(900+i*30,30,10,0,Math.PI*2);
+  ctx.arc(700+i*25,25,8,0,Math.PI*2);
   ctx.fill();
  }
 }
