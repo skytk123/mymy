@@ -4,14 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fantasy Runner Clean</title>
 <style>
-body{
-  margin:0;
-  overflow:hidden;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  background:#87ceeb;
-}
+
 canvas{
   background:#87ceeb;
 }
@@ -46,15 +39,25 @@ canvas.height=H;
 
 /* ===== 비율 유지 (잘림 방지) ===== */
 function resizeCanvas(){
- let scale=Math.min(
-   window.innerWidth/W,
-   window.innerHeight/H
- );
- canvas.style.width=W*scale+"px";
- canvas.style.height=H*scale+"px";
+
+  const scaleX = window.innerWidth / W;
+  const scaleY = window.innerHeight / H;
+
+  const scale = Math.min(scaleX, scaleY);
+
+  canvas.style.width = W * scale + "px";
+  canvas.style.height = H * scale + "px";
+
+  // 중앙 정렬 보장
+  canvas.style.position = "absolute";
+  canvas.style.left = "50%";
+  canvas.style.top = "50%";
+  canvas.style.transform = "translate(-50%, -50%)";
 }
-window.addEventListener("resize",resizeCanvas);
+
+window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
+
 
 /* ===== 방향 체크 ===== */
 function checkOrientation(){
@@ -382,3 +385,4 @@ loop();
 </script>
 </body>
 </html>
+
