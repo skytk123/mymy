@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Enhanced</title>
+<title>Fantasy Runner Final</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -24,12 +24,14 @@ canvas.style.width="100vw";
 canvas.style.height="100vh";
 
 let state="intro";
+let score=0;
 let health=3;
 let gameSpeed=4;
+
 let obstacles=[];
 let items=[];
-let spawnDelay=120;
 let spawnTimer=0;
+let spawnDelay=120;
 
 let invincible=false;
 let invTimer=0;
@@ -44,14 +46,14 @@ class Player{
   this.y=HEIGHT-50-this.height;
 
   this.vy=0;
-  this.gravity=0.35;
-  this.maxFall=6;
+  this.gravity=0.32;
+  this.maxFall=5.5;
   this.jumpCount=0;
-  this.runFrame=0;
+  this.frame=0;
  }
 
  update(){
-  this.runFrame+=0.25;
+  this.frame+=0.2;
 
   this.vy+=this.gravity;
   if(this.vy>this.maxFall) this.vy=this.maxFall;
@@ -67,7 +69,7 @@ class Player{
 
  jump(){
   if(this.jumpCount<2){
-   this.vy=-13;
+   this.vy=-14;
    this.jumpCount++;
   }
  }
@@ -82,13 +84,18 @@ class Player{
   ctx.ellipse(this.x+30,HEIGHT-40,30,12,0,0,Math.PI*2);
   ctx.fill();
 
-  // 몸통
-  ctx.fillStyle="#3498db";
-  ctx.fillRect(this.x+20,this.y+40,20,30);
-
   // 망토
   ctx.fillStyle="#e74c3c";
-  ctx.fillRect(this.x+15,this.y+45,10,25);
+  ctx.beginPath();
+  ctx.moveTo(this.x+15,this.y+45);
+  ctx.lineTo(this.x-5,this.y+65);
+  ctx.lineTo(this.x+15,this.y+75);
+  ctx.closePath();
+  ctx.fill();
+
+  // 몸통
+  ctx.fillStyle="#3498db";
+  ctx.fillRect(this.x+20,this.y+40,20,32);
 
   // 머리
   ctx.fillStyle="#ffcc99";
@@ -139,24 +146,24 @@ class Item{
   this.x=WIDTH+Math.random()*400+300;
   this.y=HEIGHT-150;
   this.size=20;
+  this.frame=0;
  }
 
- update(){ this.x-=gameSpeed; }
+ update(){
+  this.x-=gameSpeed;
+  this.frame+=0.2;
+ }
 
  draw(){
-  // 보석 느낌
-  ctx.fillStyle="cyan";
+  let glow=Math.sin(this.frame)*0.5+0.5;
+  ctx.fillStyle=`rgba(0,255,255,${glow})`;
+
   ctx.beginPath();
   ctx.moveTo(this.x,this.y);
-  ctx.lineTo(this.x+this.size/2,this.y-20);
-  ctx.lineTo(this.x+this.size,this.y);
-  ctx.lineTo(this.x+this.size/2,this.y+20);
+  ctx.lineTo(this.x+10,this.y-20);
+  ctx.lineTo(this.x+20,this.y);
+  ctx.lineTo(this.x+10,this.y+20);
   ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.arc(this.x+10,this.y,4,0,Math.PI*2);
   ctx.fill();
  }
 }
@@ -164,16 +171,31 @@ class Item{
 /* ================= INPUT ================= */
 
 canvas.addEventListener("touchend",()=>{
- if(state==="intro"){ state="play"; return; }
- if(state==="play") player.jump();
+ if(state==="intro"){ startGame(); return; }
+ if(state==="play"){ player.jump(); }
+ if(state==="gameover"){ startGame(); }
 });
 
 document.addEventListener("keydown",e=>{
  if(e.code==="Space"){
-  if(state==="intro"){ state="play"; return; }
-  if(state==="play") player.jump();
+  if(state==="intro"){ startGame(); return; }
+  if(state==="play"){ player.jump(); }
+  if(state==="gameover"){ startGame(); }
  }
 });
+
+/* ================= GAME CONTROL ================= */
+
+function startGame(){
+ score=0;
+ health=3;
+ obstacles=[];
+ items=[];
+ spawnTimer=0;
+ spawnDelay=60;
+ invincible=false;
+ state="play";
+}
 
 /* ================= UPDATE ================= */
 
@@ -207,7 +229,9 @@ function update(){
    invincible=true;
    invTimer=60;
 
-   if(health<=0) state="gameover";
+   if(health<=0){
+    state="gameover";
+   }
   }
  });
 
@@ -240,6 +264,9 @@ function draw(){
   ctx.fillStyle="red";
   ctx.font="50px Arial";
   ctx.fillText("GAME OVER",330,280);
+  ctx.fillStyle="white";
+  ctx.font="25px Arial";
+  ctx.fillText("Tap or Space to Restart",320,330);
   return;
  }
 
@@ -251,6 +278,7 @@ function draw(){
 
  obstacles.forEach(o=>o.draw());
  items.forEach(i=>i.draw());
+
  player.draw();
 
  for(let i=0;i<health;i++){
@@ -260,6 +288,8 @@ function draw(){
   ctx.fill();
  }
 }
+
+/* ================= LOOP ================= */
 
 function loop(){
  update();
