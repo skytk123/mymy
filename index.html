@@ -48,7 +48,7 @@ let obstacles=[];
 let coinsArr=[];
 let particles=[];
 
-let spawnTimer=0;
+let spawnTimer= -120;
 let combo=0;
 let comboTimer=0;
 
@@ -103,7 +103,7 @@ class Player{
   this.height=80;
   this.y=HEIGHT-150;
   this.velocityY=0;
-  this.gravity=0.8;
+  this.gravity=0.6;
   this.jumpCount=0;
   this.runFrame=0;
  }
@@ -124,7 +124,7 @@ class Player{
 
  jump(){
   if(this.jumpCount<2){
-   this.velocityY=-18;
+   this.velocityY=-16;
    this.jumpCount++;
    playSound(600,0.1);
   }
@@ -134,19 +134,39 @@ class Player{
  moveRight(){ if(this.lane<2) this.lane++; }
 
  draw(){
+ // 그림자
   ctx.fillStyle="rgba(0,0,0,0.3)";
   ctx.beginPath();
   ctx.ellipse(this.x+30,HEIGHT-40,30,12,0,0,Math.PI*2);
   ctx.fill();
 
-  ctx.fillStyle="#3498db";
-  ctx.fillRect(this.x+15,this.y+30,30,40);
+  ctx.save();
+  ctx.translate(this.x+30,this.y+40);
 
+  if(this.velocityY !== 0){
+    ctx.rotate(this.velocityY * 0.02);
+  }
+
+  ctx.translate(-(this.x+30),-(this.y+40));
+
+  // 몸통
+  ctx.fillStyle="#2ecc71";
+  ctx.fillRect(this.x+15,this.y+35,30,35);
+
+  // 머리
   ctx.fillStyle="#ffcc99";
   ctx.beginPath();
   ctx.arc(this.x+30,this.y+20,20,0,Math.PI*2);
   ctx.fill();
 
+  // 눈
+  ctx.fillStyle="black";
+  ctx.beginPath();
+  ctx.arc(this.x+23,this.y+18,3,0,Math.PI*2);
+  ctx.arc(this.x+37,this.y+18,3,0,Math.PI*2);
+  ctx.fill();
+
+  // 다리
   let legOffset=Math.sin(this.runFrame)*8;
 
   ctx.strokeStyle="#222";
@@ -161,6 +181,8 @@ class Player{
   ctx.moveTo(this.x+35,this.y+70);
   ctx.lineTo(this.x+35-legOffset,this.y+90);
   ctx.stroke();
+
+  ctx.restore();
  }
 }
 
@@ -296,7 +318,7 @@ function update(){
  player.update();
 
  spawnTimer++;
- if(spawnTimer>60){
+ if(spawnTimer>90){
   obstacles.push(new Obstacle());
   if(Math.random()>0.5) coinsArr.push(new Coin());
   spawnTimer=0;
