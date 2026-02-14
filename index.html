@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Balanced</title>
+<title>Fantasy Runner Stable Gap</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -17,6 +17,7 @@ const ctx=canvas.getContext("2d");
 
 const WIDTH=800;
 const HEIGHT=450;
+const OBSTACLE_GAP=320;   // 🔥 고정 간격
 
 canvas.width=WIDTH;
 canvas.height=HEIGHT;
@@ -29,8 +30,8 @@ let gameSpeed=4;
 
 let obstacles=[];
 let obstacleCount=0;
-let spawnTimer=0;
 let spawnDelay=60;
+let lastObstacleX=WIDTH;  // 🔥 기준점
 
 let invincible=false;
 let invTimer=0;
@@ -44,8 +45,7 @@ class Player{
   this.height=60;
   this.y=HEIGHT-40-this.height;
   this.vy=0;
-
-  this.gravity=0.9;      // 더 강한 중력
+  this.gravity=0.9;
   this.maxFall=18;
   this.jumpCount=0;
  }
@@ -64,16 +64,13 @@ class Player{
  }
 
  jump(){
-  if(this.jumpCount<1){   // 단일 점프만
-   this.vy=-13;           // 짧은 점프
+  if(this.jumpCount<1){
+   this.vy=-13;
    this.jumpCount++;
   }
  }
 
  draw(){
-
-  if(invincible) ctx.globalAlpha=0.6;
-
   ctx.fillStyle="#3498db";
   ctx.fillRect(this.x+10,this.y+25,20,25);
 
@@ -81,8 +78,6 @@ class Player{
   ctx.beginPath();
   ctx.arc(this.x+20,this.y+15,15,0,Math.PI*2);
   ctx.fill();
-
-  ctx.globalAlpha=1;
  }
 }
 
@@ -91,10 +86,10 @@ let player=new Player();
 /* ================= OBSTACLE ================= */
 
 class Obstacle{
- constructor(){
+ constructor(x){
   this.width=40;
-  this.height=35;  // 낮게
-  this.x=WIDTH+Math.random()*350+250; // 멀리 생성
+  this.height=35;
+  this.x=x;
   this.type = obstacleCount<5 ? "tree" : "monster";
   obstacleCount++;
  }
@@ -115,12 +110,6 @@ class Obstacle{
    ctx.fillStyle="purple";
    ctx.beginPath();
    ctx.arc(this.x+20,HEIGHT-55,18,0,Math.PI*2);
-   ctx.fill();
-
-   ctx.fillStyle="white";
-   ctx.beginPath();
-   ctx.arc(this.x+14,HEIGHT-60,4,0,Math.PI*2);
-   ctx.arc(this.x+26,HEIGHT-60,4,0,Math.PI*2);
    ctx.fill();
   }
  }
@@ -152,9 +141,8 @@ function startGame(){
  health=3;
  obstacles=[];
  obstacleCount=0;
- spawnTimer=0;
  spawnDelay=30;
- invincible=false;
+ lastObstacleX=WIDTH;
  state="play";
 }
 
@@ -168,10 +156,13 @@ function update(){
  if(spawnDelay>0){
   spawnDelay--;
  }else{
-  spawnTimer++;
-  if(spawnTimer>150){  // 간격 넓힘
-   obstacles.push(new Obstacle());
-   spawnTimer=0;
+  // 🔥 마지막 장애물 기준 생성
+  if(obstacles.length===0 || 
+     lastObstacleX - obstacles[obstacles.length-1].x >= OBSTACLE_GAP){
+
+   let newX = lastObstacleX + OBSTACLE_GAP;
+   obstacles.push(new Obstacle(newX));
+   lastObstacleX = newX;
   }
  }
 
