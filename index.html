@@ -2,245 +2,315 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Stable Gap</title>
+<title>Fantasy Runner</title>
 <style>
-body{margin:0;overflow:hidden;background:black;}
-canvas{display:block;margin:0 auto;background:#87ceeb;}
+body{margin:0;overflow:hidden;background:#87ceeb;}
+canvas{display:block;margin:0 auto;}
+.controls{
+ position:fixed;
+ bottom:15px;
+ left:50%;
+ transform:translateX(-50%);
+ display:flex;
+ gap:30px;
+}
+button{
+ width:70px;
+ height:70px;
+ font-size:24px;
+ border-radius:50%;
+}
+#rotateMessage{
+ position:fixed;
+ top:0;left:0;
+ width:100%;height:100%;
+ background:black;color:white;
+ display:none;justify-content:center;
+ align-items:center;text-align:center;
+ font-size:24px;z-index:999;
+}
 </style>
 </head>
 <body>
+
+<div id="rotateMessage">📱 가로로 돌려주세요</div>
 <canvas id="game"></canvas>
 
+<div class="controls">
+<button id="left">⬅️</button>
+<button id="jumpBtn">⬆️</button>
+<button id="right">➡️</button>
+</div>
+
 <script>
+/* ===== 해상도 ===== */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
-
-const WIDTH=800;
-const HEIGHT=450;
-const OBSTACLE_GAP=320;   // 🔥 고정 간격
-
-canvas.width=WIDTH;
-canvas.height=HEIGHT;
+const W=1000,H=600;
+canvas.width=W; canvas.height=H;
 canvas.style.width="100vw";
 canvas.style.height="100vh";
 
-let state="intro";
-let health=3;
-let gameSpeed=4;
+/* ===== 방향 ===== */
+function checkOrientation(){
+ if(window.innerHeight>window.innerWidth)
+  rotateMessage.style.display="flex";
+ else rotateMessage.style.display="none";
+}
+window.addEventListener("resize",checkOrientation);
+checkOrientation();
 
-let obstacles=[];
-let obstacleCount=0;
-let spawnDelay=60;
-let lastObstacleX=WIDTH;  // 🔥 기준점
+/* ===== 변수 ===== */
+let gravity=0.45;
+let stage=1,score=0,totalScore=0;
+let spacing=450,gameSpeed=3;
+let health=3,invincible=false,invTimer=0;
+let gameActive=true,gameOver=false,ending=false;
+let keys={left:false,right:false};
+let obstacles=[],items=[];
 
-let invincible=false;
-let invTimer=0;
+/* ===== 플레이어 ===== */
+let player={
+ x:200,y:H-150,
+ width:60,height:60,
+ velocityY:0,speed:6,jumpCount:0
+};
 
-/* ================= PLAYER ================= */
-
-class Player{
- constructor(){
-  this.x=150;
-  this.width=40;
-  this.height=60;
-  this.y=HEIGHT-40-this.height;
-  this.vy=0;
-  this.gravity=0.8;
-  this.maxFall=18;
-  this.jumpCount=0;
- }
-
- update(){
-  this.vy+=this.gravity;
-  if(this.vy>this.maxFall) this.vy=this.maxFall;
-
-  this.y+=this.vy;
-
-  if(this.y+this.height>=HEIGHT-40){
-   this.y=HEIGHT-40-this.height;
-   this.vy=0;
-   this.jumpCount=0;
-  }
- }
-
- jump(){
-  if(this.jumpCount<1){
-   this.vy=-18;
-   this.jumpCount++;
-  }
- }
-
- draw(){
-  ctx.fillStyle="#3498db";
-  ctx.fillRect(this.x+10,this.y+25,20,25);
-
-  ctx.fillStyle="#ffcc99";
-  ctx.beginPath();
-  ctx.arc(this.x+20,this.y+15,15,0,Math.PI*2);
-  ctx.fill();
- }
+/* ===== 초기화 ===== */
+function initGame(){
+ stage=1; totalScore=0; health=3;
+ gameOver=false; ending=false; gameActive=true;
+ startStage();
 }
 
-let player=new Player();
-
-/* ================= OBSTACLE ================= */
-
-class Obstacle{
- constructor(x){
-  this.width=40;
-  this.height=35;
-  this.x=x;
-  this.type = obstacleCount<5 ? "tree" : "monster";
-  obstacleCount++;
- }
-
- update(){ this.x-=gameSpeed; }
-
- draw(){
-  if(this.type==="tree"){
-   ctx.fillStyle="#8B4513";
-   ctx.fillRect(this.x+15,HEIGHT-40-20,10,20);
-
-   ctx.fillStyle="green";
-   ctx.beginPath();
-   ctx.arc(this.x+20,HEIGHT-70,20,0,Math.PI*2);
-   ctx.fill();
-  }
-  else{
-   ctx.fillStyle="purple";
-   ctx.beginPath();
-   ctx.arc(this.x+20,HEIGHT-55,18,0,Math.PI*2);
-   ctx.fill();
-  }
- }
-
- get y(){
-  return HEIGHT-40-this.height;
- }
+function startStage(){
+ score=0; obstacles=[]; items=[];
+ spacing=520-stage*25; if(spacing<260) spacing=260;
+ gameSpeed=2+stage;
+ player.y=H-150; player.velocityY=0; player.jumpCount=0;
 }
 
-/* ================= INPUT ================= */
+initGame();
 
-canvas.addEventListener("touchend",()=>{
- if(state==="intro"){ startGame(); return; }
- if(state==="play"){ player.jump(); }
- if(state==="gameover"){ startGame(); }
-});
+/* ===== 입력 ===== */
+function jump(){
+ if(gameOver){initGame();return;}
+ if(!gameActive)return;
+
+ if(player.jumpCount<3){
+  if(player.jumpCount===0) player.velocityY=-18;
+  else if(player.jumpCount===1) player.velocityY=-17;
+  else player.velocityY=-15;
+  player.jumpCount++;
+ }
+}
 
 document.addEventListener("keydown",e=>{
- if(e.code==="Space"){
-  if(state==="intro"){ startGame(); return; }
-  if(state==="play"){ player.jump(); }
-  if(state==="gameover"){ startGame(); }
- }
+ if(e.key==="ArrowLeft")keys.left=true;
+ if(e.key==="ArrowRight")keys.right=true;
+ if(e.key===" "||e.key==="ArrowUp")jump();
 });
+document.addEventListener("keyup",e=>{
+ if(e.key==="ArrowLeft")keys.left=false;
+ if(e.key==="ArrowRight")keys.right=false;
+});
+left.ontouchstart=()=>keys.left=true;
+left.ontouchend=()=>keys.left=false;
+right.ontouchstart=()=>keys.right=true;
+right.ontouchend=()=>keys.right=false;
+jumpBtn.ontouchstart=jump;
 
-/* ================= GAME CONTROL ================= */
-
-function startGame(){
- health=3;
- obstacles=[];
- obstacleCount=0;
- spawnDelay=30;
- lastObstacleX=WIDTH;
- state="play";
+/* ===== 생성 ===== */
+function spawnObstacle(){
+ if(obstacles.length>=10)return;
+ let type=obstacles.length<5?"tree":"monster";
+ let height=type==="tree"?120:200;
+ let lastX=obstacles.length?obstacles[obstacles.length-1].x:W;
+ obstacles.push({
+  x:lastX+spacing,
+  y:H-50-height,
+  width:80,height:height,
+  type:type,passed:false,hit:false
+ });
 }
 
-/* ================= UPDATE ================= */
+function spawnItem(){
+ if(Math.random()<0.02){
+  let type=Math.random()<0.5?"heart":"shield";
+  items.push({
+   x:W+100,
+   y:Math.random()*(H-200),
+   type:type
+  });
+ }
+}
 
+/* ===== 업데이트 ===== */
 function update(){
- if(state!=="play") return;
+ if(!gameActive)return;
 
- player.update();
+ if(keys.left)player.x-=player.speed;
+ if(keys.right)player.x+=player.speed;
+ if(player.x<0)player.x=0;
+ if(player.x+player.width>W)
+  player.x=W-player.width;
 
- if(spawnDelay>0){
-  spawnDelay--;
- }else{
-  // 🔥 마지막 장애물 기준 생성
-  if(obstacles.length===0 || 
-     lastObstacleX - obstacles[obstacles.length-1].x >= OBSTACLE_GAP){
-
-   let newX = lastObstacleX + OBSTACLE_GAP;
-   obstacles.push(new Obstacle(newX));
-   lastObstacleX = newX;
-  }
+ player.velocityY+=gravity;
+ player.y+=player.velocityY;
+ if(player.y+player.height>=H-50){
+  player.y=H-50-player.height;
+  player.jumpCount=0;
  }
 
- obstacles.forEach(o=>o.update());
+ if(invincible){
+  invTimer--; if(invTimer<=0)invincible=false;
+ }
 
- obstacles.forEach(o=>{
-  if(player.x<o.x+40 &&
-     player.x+player.width>o.x &&
-     player.y<o.y+35 &&
-     player.y+player.height>o.y &&
-     !invincible){
+ if(obstacles.length===0 ||
+   obstacles[obstacles.length-1].x<W-spacing)
+  spawnObstacle();
 
-   health--;
-   invincible=true;
-   invTimer=60;
+ spawnItem();
 
-   if(health<=0) state="gameover";
+ obstacles.forEach(obj=>{
+  obj.x-=gameSpeed;
+
+  if(player.x<obj.x+80 &&
+     player.x+60>obj.x &&
+     player.y<obj.y+obj.height &&
+     player.y+60>obj.y){
+   if(!obj.hit&&!invincible){
+    obj.hit=true; health--;
+    if(health<=0){gameOver=true;gameActive=false;}
+   }
+  }
+
+  if(!obj.passed&&obj.x+80<player.x){
+   obj.passed=true; score++; totalScore++;
   }
  });
 
- obstacles=obstacles.filter(o=>o.x>-100);
+ items.forEach(it=>{
+  it.x-=gameSpeed;
+  if(player.x<it.x+30 &&
+     player.x+60>it.x &&
+     player.y<it.y+30 &&
+     player.y+60>it.y){
+   if(it.type==="heart"&&health<3)health++;
+   if(it.type==="shield"){invincible=true;invTimer=180;}
+   it.remove=true;
+  }
+ });
+ items=items.filter(i=>!i.remove);
 
- if(invincible){
-  invTimer--;
-  if(invTimer<=0) invincible=false;
+ if(score>=10){
+  stage++;
+  if(stage>10){ending=true;gameActive=false;}
+  else startStage();
  }
 }
 
-/* ================= DRAW ================= */
-
+/* ===== 그리기 ===== */
 function draw(){
- ctx.clearRect(0,0,WIDTH,HEIGHT);
+ ctx.clearRect(0,0,W,H);
 
- if(state==="intro"){
-  ctx.fillStyle="black";
-  ctx.fillRect(0,0,WIDTH,HEIGHT);
+ if(ending){
+  ctx.fillStyle="black"; ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
+  ctx.font="50px Arial";
+  ctx.fillText("THE END",400,250);
   ctx.font="30px Arial";
-  ctx.fillText("TAP OR SPACE TO START",200,200);
+  ctx.fillText("Final Score: "+totalScore,380,300);
   return;
  }
 
- if(state==="gameover"){
-  ctx.fillStyle="black";
-  ctx.fillRect(0,0,WIDTH,HEIGHT);
-  ctx.fillStyle="red";
-  ctx.font="40px Arial";
-  ctx.fillText("GAME OVER",250,200);
+ if(gameOver){
+  ctx.fillStyle="rgba(0,0,0,0.7)";
+  ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
-  ctx.font="20px Arial";
-  ctx.fillText("Tap or Space to Restart",230,240);
+  ctx.font="50px Arial";
+  ctx.fillText("GAME OVER",380,250);
+  ctx.font="25px Arial";
+  ctx.fillText("Tap to Restart",430,300);
   return;
  }
-
- ctx.fillStyle="#87ceeb";
- ctx.fillRect(0,0,WIDTH,HEIGHT);
 
  ctx.fillStyle="green";
- ctx.fillRect(0,HEIGHT-40,WIDTH,40);
+ ctx.fillRect(0,H-50,W,50);
 
- obstacles.forEach(o=>o.draw());
- player.draw();
+ /* 플레이어 */
+ if(invincible)
+  ctx.globalAlpha=0.5+Math.sin(Date.now()*0.02)*0.5;
 
- for(let i=0;i<health;i++){
-  ctx.fillStyle="red";
+ ctx.fillStyle="#ffcc99";
+ ctx.beginPath();
+ ctx.arc(player.x+30,player.y+30,30,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.fillStyle="black";
+ ctx.beginPath();
+ ctx.arc(player.x+20,player.y+25,5,0,Math.PI*2);
+ ctx.arc(player.x+40,player.y+25,5,0,Math.PI*2);
+ ctx.fill();
+ ctx.beginPath();
+ ctx.arc(player.x+30,player.y+35,10,0,Math.PI);
+ ctx.stroke();
+ ctx.globalAlpha=1;
+
+ /* 장애물 */
+ obstacles.forEach(obj=>{
+  if(obj.type==="tree"){
+   ctx.fillStyle="#6b3e26";
+   ctx.fillRect(obj.x+30,obj.y+60,20,obj.height-60);
+   ctx.fillStyle="#0b6623";
+   ctx.beginPath();
+   ctx.moveTo(obj.x+40,obj.y);
+   ctx.lineTo(obj.x,obj.y+80);
+   ctx.lineTo(obj.x+80,obj.y+80);
+   ctx.closePath(); ctx.fill();
+  }else{
+   let cx=obj.x+40,cy=obj.y+100;
+   ctx.fillStyle="#4b0082";
+   ctx.beginPath();
+   ctx.ellipse(cx,cy,40,80,0,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle="white";
+   ctx.beginPath();
+   ctx.arc(cx-15,cy-30,10,0,Math.PI*2);
+   ctx.arc(cx+15,cy-30,10,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle="black";
+   ctx.beginPath();
+   ctx.arc(cx-15,cy-30,5,0,Math.PI*2);
+   ctx.arc(cx+15,cy-30,5,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle="black";
+   ctx.beginPath();
+   ctx.arc(cx,cy+10,20,0,Math.PI);
+   ctx.fill();
+  }
+ });
+
+ /* 아이템 */
+ items.forEach(it=>{
+  ctx.fillStyle=it.type==="heart"?"red":"gold";
   ctx.beginPath();
-  ctx.arc(700+i*25,25,8,0,Math.PI*2);
+  ctx.arc(it.x+15,it.y+15,15,0,Math.PI*2);
   ctx.fill();
- }
+ });
+
+ ctx.fillStyle="black";
+ ctx.font="20px Arial";
+ ctx.fillText("Stage:"+stage,20,30);
+ ctx.fillText("HP:"+health,20,60);
 }
 
-function loop(){
- update();
- draw();
- requestAnimationFrame(loop);
-}
+/* ===== 루프 ===== */
+function loop(){update();draw();requestAnimationFrame(loop);}
 loop();
 </script>
 </body>
 </html>
-
