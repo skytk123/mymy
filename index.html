@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Stage</title>
+<title>Fantasy Runner Balanced</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -45,8 +45,8 @@ class Player{
   this.y=HEIGHT-40-this.height;
   this.vy=0;
 
-  this.gravity=0.8;
-  this.maxFall=15;
+  this.gravity=0.9;      // 더 강한 중력
+  this.maxFall=18;
   this.jumpCount=0;
  }
 
@@ -64,8 +64,8 @@ class Player{
  }
 
  jump(){
-  if(this.jumpCount<2){
-   this.vy=-17;
+  if(this.jumpCount<1){   // 단일 점프만
+   this.vy=-13;           // 짧은 점프
    this.jumpCount++;
   }
  }
@@ -74,27 +74,12 @@ class Player{
 
   if(invincible) ctx.globalAlpha=0.6;
 
-  // 그림자
-  ctx.fillStyle="rgba(0,0,0,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(this.x+20,HEIGHT-30,20,8,0,0,Math.PI*2);
-  ctx.fill();
-
-  // 몸통
   ctx.fillStyle="#3498db";
   ctx.fillRect(this.x+10,this.y+25,20,25);
 
-  // 머리
   ctx.fillStyle="#ffcc99";
   ctx.beginPath();
   ctx.arc(this.x+20,this.y+15,15,0,Math.PI*2);
-  ctx.fill();
-
-  // 눈
-  ctx.fillStyle="black";
-  ctx.beginPath();
-  ctx.arc(this.x+15,this.y+12,2,0,Math.PI*2);
-  ctx.arc(this.x+25,this.y+12,2,0,Math.PI*2);
   ctx.fill();
 
   ctx.globalAlpha=1;
@@ -108,8 +93,8 @@ let player=new Player();
 class Obstacle{
  constructor(){
   this.width=40;
-  this.height=50;
-  this.x=WIDTH+Math.random()*200+150;
+  this.height=35;  // 낮게
+  this.x=WIDTH+Math.random()*350+250; // 멀리 생성
   this.type = obstacleCount<5 ? "tree" : "monster";
   obstacleCount++;
  }
@@ -117,32 +102,25 @@ class Obstacle{
  update(){ this.x-=gameSpeed; }
 
  draw(){
-
   if(this.type==="tree"){
-   // 줄기
    ctx.fillStyle="#8B4513";
-   ctx.fillRect(this.x+15,HEIGHT-40-30,10,30);
+   ctx.fillRect(this.x+15,HEIGHT-40-20,10,20);
 
-   // 잎
    ctx.fillStyle="green";
    ctx.beginPath();
-   ctx.moveTo(this.x+20,HEIGHT-120);
-   ctx.lineTo(this.x,this.y+20);
-   ctx.lineTo(this.x+40,this.y+20);
-   ctx.closePath();
+   ctx.arc(this.x+20,HEIGHT-70,20,0,Math.PI*2);
    ctx.fill();
   }
   else{
-   // 괴물
    ctx.fillStyle="purple";
    ctx.beginPath();
-   ctx.arc(this.x+20,HEIGHT-60,20,0,Math.PI*2);
+   ctx.arc(this.x+20,HEIGHT-55,18,0,Math.PI*2);
    ctx.fill();
 
    ctx.fillStyle="white";
    ctx.beginPath();
-   ctx.arc(this.x+14,HEIGHT-65,5,0,Math.PI*2);
-   ctx.arc(this.x+26,HEIGHT-65,5,0,Math.PI*2);
+   ctx.arc(this.x+14,HEIGHT-60,4,0,Math.PI*2);
+   ctx.arc(this.x+26,HEIGHT-60,4,0,Math.PI*2);
    ctx.fill();
   }
  }
@@ -191,7 +169,7 @@ function update(){
   spawnDelay--;
  }else{
   spawnTimer++;
-  if(spawnTimer>80){
+  if(spawnTimer>150){  // 간격 넓힘
    obstacles.push(new Obstacle());
    spawnTimer=0;
   }
@@ -202,7 +180,7 @@ function update(){
  obstacles.forEach(o=>{
   if(player.x<o.x+40 &&
      player.x+player.width>o.x &&
-     player.y<o.y+50 &&
+     player.y<o.y+35 &&
      player.y+player.height>o.y &&
      !invincible){
 
@@ -264,8 +242,6 @@ function draw(){
   ctx.fill();
  }
 }
-
-/* ================= LOOP ================= */
 
 function loop(){
  update();
