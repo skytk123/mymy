@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Ultimate</title>
+<title>Fantasy Runner Fixed</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -12,346 +12,258 @@ canvas{display:block;margin:0 auto;background:#87ceeb;}
 <canvas id="game"></canvas>
 
 <script>
-/* ================== 기본 설정 ================== */
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const WIDTH=1000;
+const HEIGHT=600;
 
-const WIDTH = 1000;
-const HEIGHT = 600;
+canvas.width=WIDTH;
+canvas.height=HEIGHT;
+canvas.style.width="100vw";
+canvas.style.height="100vh";
 
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
-canvas.style.width = "100vw";
-canvas.style.height = "100vh";
+const LANES=[WIDTH*0.25, WIDTH*0.5, WIDTH*0.75];
 
-/* ================== 상태 ================== */
+let state="intro";
+let score=0;
+let coins=0;
+let health=3;
+let gameSpeed=4;
 
-const GameState = {
-  INTRO: "intro",
-  PLAYING: "playing",
-  GAMEOVER: "gameover"
-};
+let obstacles=[];
+let items=[];
+let spawnDelay=180; // 3초
+let spawnCounter=0;
 
-let state = GameState.INTRO;
+let invincible=false;
+let invTimer=0;
 
-/* ================== 글로벌 데이터 ================== */
+/* ========= 사운드 ========= */
+const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+function playSound(freq,duration){
+ const osc=audioCtx.createOscillator();
+ const gain=audioCtx.createGain();
+ osc.connect(gain);
+ gain.connect(audioCtx.destination);
+ osc.frequency.value=freq;
+ osc.start();
+ gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
+ gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
+ osc.stop(audioCtx.currentTime+duration);
+}
 
-const LANES = [WIDTH*0.25, WIDTH*0.5, WIDTH*0.75];
-
-let score = 0;
-let coins = 0;
-let health = 3;
-let gameSpeed = 4;
-
-let obstacles = [];
-let coinsArr = [];
-let particles = [];
-
-let spawnTimer = -120;
-
-let invincible = false;
-let invincibleTimer = 0;
-
-/* ================== 입력 ================== */
-
-let touchStartX = 0;
-let touchStartY = 0;
-let lastTap = 0;
-
-canvas.addEventListener("touchstart", e=>{
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-});
-
-canvas.addEventListener("touchend", e=>{
-
-  let dx = e.changedTouches[0].clientX - touchStartX;
-  let dy = e.changedTouches[0].clientY - touchStartY;
-
-  if(state === GameState.INTRO){
-    state = GameState.PLAYING;
-    return;
-  }
-
-  if(state === GameState.GAMEOVER){
-    restart();
-    return;
-  }
-
-  let now = Date.now();
-  if(now - lastTap < 300 && coins >= 20){
-    obstacles = [];
-    coins -= 20;
-  }
-  lastTap = now;
-
-  handleSwipe(dx, dy);
-});
-
-/* ================== 플레이어 ================== */
-
+/* ========= 플레이어 ========= */
 class Player{
-  constructor(){
-    this.lane = 1;
-    this.width = 60;
-    this.height = 80;
-    this.y = HEIGHT - 50 - this.height;
-    this.velocityY = 0;
-    this.gravity = 0.6;
-    this.jumpCount = 0;
-    this.runFrame = 0;
+ constructor(){
+  this.lane=1;
+  this.width=60;
+  this.height=80;
+  this.y=HEIGHT-50-this.height;
+  this.vy=0;
+  this.gravity=0.6;
+  this.jumpCount=0;
+ }
+
+ get x(){return LANES[this.lane]-this.width/2;}
+
+ update(){
+  this.vy+=this.gravity;
+  if(this.vy>12) this.vy=12;
+  this.y+=this.vy;
+
+  if(this.y+this.height>=HEIGHT-50){
+   this.y=HEIGHT-50-this.height;
+   this.vy=0;
+   this.jumpCount=0;
   }
+ }
 
-  get x(){ return LANES[this.lane] - this.width/2; }
-
-  update(){
-    this.runFrame += 0.2;
-    this.velocityY += this.gravity;
-    if(this.velocityY > 12) this.velocityY = 12;
-
-    this.y += this.velocityY;
-
-    if(this.y + this.height >= HEIGHT - 50){
-      this.y = HEIGHT - 50 - this.height;
-      this.velocityY = 0;
-      this.jumpCount = 0;
-    }
+ jump(){
+  if(this.jumpCount<2){
+   this.vy=-16;
+   this.jumpCount++;
+   playSound(600,0.1);
   }
+ }
 
-  jump(){
-    if(this.jumpCount < 2){
-      this.velocityY = -16;
-      this.jumpCount++;
-    }
-  }
+ moveLeft(){if(this.lane>0)this.lane--;}
+ moveRight(){if(this.lane<2)this.lane++;}
+ draw(){
+  if(invincible) ctx.globalAlpha=0.5;
 
-  moveLeft(){ if(this.lane > 0) this.lane--; }
-  moveRight(){ if(this.lane < 2) this.lane++; }
+  ctx.fillStyle="#2ecc71";
+  ctx.fillRect(this.x,this.y,this.width,this.height);
 
-  draw(){
-    if(invincible){
-      ctx.globalAlpha = 0.5;
-    }
-
-    // 그림자
-    ctx.fillStyle="rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(this.x+30, HEIGHT-40, 30, 12, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    // 몸통
-    ctx.fillStyle="#2ecc71";
-    ctx.fillRect(this.x+15,this.y+35,30,35);
-
-    // 머리
-    ctx.fillStyle="#ffcc99";
-    ctx.beginPath();
-    ctx.arc(this.x+30,this.y+20,20,0,Math.PI*2);
-    ctx.fill();
-
-    ctx.globalAlpha = 1;
-  }
+  ctx.globalAlpha=1;
+ }
 }
 
-let player = new Player();
+let player=new Player();
 
-/* ================== 장애물 ================== */
-
+/* ========= 장애물 ========= */
 class Obstacle{
-  constructor(){
-    this.lane = Math.floor(Math.random()*3);
-    this.width = 60;
-    this.height = Math.random()>0.5?80:50;
-    this.x = WIDTH + 100;
-    this.y = HEIGHT - 50 - this.height;
-    this.passed = false;
-  }
-
-  update(){
-    this.x -= gameSpeed;
-  }
-
-  draw(){
-    ctx.fillStyle="#8e44ad";
-    ctx.fillRect(this.x,this.y,this.width,this.height);
-  }
+ constructor(distance){
+  this.lane=Math.floor(Math.random()*3);
+  this.width=60;
+  this.height=Math.random()>0.5?80:50;
+  this.x=WIDTH+distance;
+  this.y=HEIGHT-50-this.height;
+ }
+ update(){this.x-=gameSpeed;}
+ draw(){
+  ctx.fillStyle="purple";
+  ctx.fillRect(this.x,this.y,this.width,this.height);
+ }
 }
 
-/* ================== 코인 ================== */
-
+/* ========= 코인 ========= */
 class Coin{
-  constructor(){
-    this.lane = Math.floor(Math.random()*3);
-    this.radius = 15;
-    this.x = WIDTH + 100;
-    this.y = HEIGHT - 120;
-    this.collected = false;
-  }
-
-  update(){ this.x -= gameSpeed; }
-
-  draw(){
-    ctx.fillStyle="gold";
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-    ctx.fill();
-  }
+ constructor(distance){
+  this.lane=Math.floor(Math.random()*3);
+  this.x=WIDTH+distance;
+  this.y=HEIGHT-120;
+  this.r=15;
+ }
+ update(){this.x-=gameSpeed;}
+ draw(){
+  ctx.fillStyle="gold";
+  ctx.beginPath();
+  ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+  ctx.fill();
+ }
 }
 
-/* ================== 충돌 ================== */
-
-function isColliding(a,b){
-  return a.x < b.x + b.width &&
-         a.x + a.width > b.x &&
-         a.y < b.y + b.height &&
-         a.y + a.height > b.y;
+/* ========= 충돌 ========= */
+function rectCollide(a,b){
+ return a.x<b.x+b.width &&
+        a.x+a.width>b.x &&
+        a.y<b.y+b.height &&
+        a.y+a.height>b.y;
+}
+function circleCollide(p,c){
+ let dx=(p.x+30)-c.x;
+ let dy=(p.y+40)-c.y;
+ return Math.sqrt(dx*dx+dy*dy)<30;
 }
 
-function isCircleColliding(p,c){
-  let dx = (p.x+30) - c.x;
-  let dy = (p.y+40) - c.y;
-  return Math.sqrt(dx*dx+dy*dy) < 30;
-}
+/* ========= 입력 ========= */
+let sx=0,sy=0;
+canvas.addEventListener("touchstart",e=>{
+ sx=e.touches[0].clientX;
+ sy=e.touches[0].clientY;
+ if(state==="intro") state="play";
+});
+canvas.addEventListener("touchend",e=>{
+ if(state!=="play") return;
+ let dx=e.changedTouches[0].clientX-sx;
+ let dy=e.changedTouches[0].clientY-sy;
+ if(Math.abs(dx)>Math.abs(dy)){
+  if(dx>40) player.moveRight();
+  if(dx<-40) player.moveLeft();
+ }else{
+  if(dy<-40) player.jump();
+ }
+});
 
-/* ================== 업데이트 ================== */
-
+/* ========= 업데이트 ========= */
 function update(){
-  if(state !== GameState.PLAYING) return;
+ if(state!=="play") return;
 
-  player.update();
+ player.update();
 
-  spawnTimer++;
-  if(spawnTimer > 90){
-    obstacles.push(new Obstacle());
-    if(Math.random()>0.5) coinsArr.push(new Coin());
-    spawnTimer = 0;
+ if(spawnDelay>0){
+  spawnDelay--;
+ }else{
+  spawnCounter++;
+  if(spawnCounter>90){
+   let dist=Math.random()*300+200;
+   obstacles.push(new Obstacle(dist));
+   if(Math.random()>0.5) items.push(new Coin(dist+150));
+   spawnCounter=0;
   }
+ }
 
-  obstacles.forEach(o=>o.update());
-  coinsArr.forEach(c=>c.update());
+ obstacles.forEach(o=>o.update());
+ items.forEach(i=>i.update());
 
-  obstacles.forEach(o=>{
-    if(isColliding(player,o) && !invincible){
-      health--;
-      invincible = true;
-      invincibleTimer = 60;
-
-      if(health <= 0){
-        state = GameState.GAMEOVER;
-      }
-    }
-
-    if(!o.passed && o.x < player.x){
-      o.passed = true;
-      score++;
-    }
-  });
-
-  coinsArr.forEach(c=>{
-    if(!c.collected && isCircleColliding(player,c)){
-      c.collected = true;
-      coins++;
-    }
-  });
-
-  obstacles = obstacles.filter(o=>o.x > -100);
-  coinsArr = coinsArr.filter(c=>!c.collected && c.x > -50);
-
-  if(invincible){
-    invincibleTimer--;
-    if(invincibleTimer <= 0){
-      invincible = false;
-    }
+ obstacles.forEach(o=>{
+  if(rectCollide(player,o)&&!invincible){
+   health--;
+   invincible=true;
+   invTimer=60;
+   playSound(150,0.2);
+   if(health<=0) state="gameover";
   }
+ });
+
+ items.forEach(i=>{
+  if(circleCollide(player,i)){
+   coins++;
+   playSound(900,0.1);
+   i.x=-100;
+  }
+ });
+
+ obstacles=obstacles.filter(o=>o.x>-100);
+ items=items.filter(i=>i.x>-100);
+
+ if(invincible){
+  invTimer--;
+  if(invTimer<=0) invincible=false;
+ }
 }
 
-/* ================== 그리기 ================== */
-
+/* ========= 그리기 ========= */
 function draw(){
-  ctx.clearRect(0,0,WIDTH,HEIGHT);
+ ctx.clearRect(0,0,WIDTH,HEIGHT);
 
-  if(state === GameState.INTRO){
-    ctx.fillStyle="black";
-    ctx.fillRect(0,0,WIDTH,HEIGHT);
-    ctx.fillStyle="white";
-    ctx.font="50px Arial";
-    ctx.fillText("FANTASY RUNNER",250,250);
-    ctx.font="25px Arial";
-    ctx.fillText("TAP TO START",380,320);
-    return;
-  }
-
-  if(state === GameState.GAMEOVER){
-    ctx.fillStyle="rgba(0,0,0,0.8)";
-    ctx.fillRect(0,0,WIDTH,HEIGHT);
-    ctx.fillStyle="red";
-    ctx.font="60px Arial";
-    ctx.fillText("GAME OVER",300,250);
-    ctx.fillStyle="white";
-    ctx.font="25px Arial";
-    ctx.fillText("Tap to Restart",380,320);
-    return;
-  }
-
-  ctx.fillStyle="#87ceeb";
-  ctx.fillRect(0,0,WIDTH,HEIGHT);
-
-  ctx.fillStyle="green";
-  ctx.fillRect(0,HEIGHT-50,WIDTH,50);
-
-  obstacles.forEach(o=>o.draw());
-  coinsArr.forEach(c=>c.draw());
-
-  player.draw();
-
+ if(state==="intro"){
   ctx.fillStyle="black";
-  ctx.font="20px Arial";
-  ctx.fillText("Score: "+score,20,30);
-  ctx.fillText("Coins: "+coins,20,60);
+  ctx.fillRect(0,0,WIDTH,HEIGHT);
+  ctx.fillStyle="white";
+  ctx.font="40px Arial";
+  ctx.fillText("TAP TO START",350,300);
+  return;
+ }
 
-  for(let i=0;i<health;i++){
-    ctx.fillStyle="red";
-    ctx.beginPath();
-    ctx.arc(900+i*30,30,10,0,Math.PI*2);
-    ctx.fill();
-  }
+ if(state==="gameover"){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,WIDTH,HEIGHT);
+  ctx.fillStyle="red";
+  ctx.font="50px Arial";
+  ctx.fillText("GAME OVER",330,300);
+  return;
+ }
+
+ ctx.fillStyle="#87ceeb";
+ ctx.fillRect(0,0,WIDTH,HEIGHT);
+ ctx.fillStyle="green";
+ ctx.fillRect(0,HEIGHT-50,WIDTH,50);
+
+ obstacles.forEach(o=>o.draw());
+ items.forEach(i=>i.draw());
+ player.draw();
+
+ ctx.fillStyle="black";
+ ctx.fillText("Score:"+score,20,30);
+ ctx.fillText("Coins:"+coins,20,60);
+
+ for(let i=0;i<health;i++){
+  ctx.fillStyle="red";
+  ctx.beginPath();
+  ctx.arc(900+i*30,30,10,0,Math.PI*2);
+  ctx.fill();
+ }
 }
 
-/* ================== 스와이프 ================== */
-
-function handleSwipe(dx,dy){
-  if(Math.abs(dx) > Math.abs(dy)){
-    if(dx > 40) player.moveRight();
-    if(dx < -40) player.moveLeft();
-  } else {
-    if(dy < -40) player.jump();
-  }
-}
-
-/* ================== 재시작 ================== */
-
-function restart(){
-  score = 0;
-  coins = 0;
-  health = 3;
-  obstacles = [];
-  coinsArr = [];
-  spawnTimer = -120;
-  invincible = false;
-  state = GameState.PLAYING;
-}
-
-/* ================== 루프 ================== */
-
+/* ========= 루프 ========= */
 function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+ update();
+ draw();
+ requestAnimationFrame(loop);
 }
-
 loop();
-
 </script>
 </body>
 </html>
