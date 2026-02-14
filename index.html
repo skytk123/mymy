@@ -2,117 +2,123 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Fixed</title>
+<title>Fantasy Runner</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
 </style>
 </head>
 <body>
+
 <canvas id="game"></canvas>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const WIDTH=1000;
-const HEIGHT=600;
+const WIDTH = 1000;
+const HEIGHT = 600;
 
-canvas.width=WIDTH;
-canvas.height=HEIGHT;
-canvas.style.width="100vw";
-canvas.style.height="100vh";
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+canvas.style.width = "100vw";
+canvas.style.height = "100vh";
 
-const LANES=[WIDTH*0.25, WIDTH*0.5, WIDTH*0.75];
+let state = "intro";
 
-let state="intro";
-let score=0;
-let coins=0;
-let health=3;
-let gameSpeed=4;
+let score = 0;
+let coins = 0;
+let health = 3;
+let gameSpeed = 4;
 
-let obstacles=[];
-let items=[];
-let spawnDelay=180; // 3초
-let spawnCounter=0;
+let obstacles = [];
+let items = [];
 
-let invincible=false;
-let invTimer=0;
+let spawnDelay = 120; // 시작 여유
+let spawnTimer = 0;
+
+let invincible = false;
+let invTimer = 0;
 
 /* ========= 사운드 ========= */
-const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
 function playSound(freq,duration){
- const osc=audioCtx.createOscillator();
- const gain=audioCtx.createGain();
+ const osc = audioCtx.createOscillator();
+ const gain = audioCtx.createGain();
+
  osc.connect(gain);
  gain.connect(audioCtx.destination);
- osc.frequency.value=freq;
+
+ osc.frequency.value = freq;
  osc.start();
+
  gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
  gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
+
  osc.stop(audioCtx.currentTime+duration);
 }
 
 /* ========= 플레이어 ========= */
 class Player{
  constructor(){
-  this.lane=1;
-  this.width=60;
-  this.height=80;
-  this.y=HEIGHT-50-this.height;
-  this.vy=0;
-  this.gravity=0.6;
-  this.jumpCount=0;
+  this.width = 60;
+  this.height = 80;
+  this.x = 200;
+  this.y = HEIGHT - 50 - this.height;
+  this.vy = 0;
+  this.gravity = 0.6;
+  this.jumpCount = 0;
  }
 
- get x(){return LANES[this.lane]-this.width/2;}
-
  update(){
-  this.vy+=this.gravity;
-  if(this.vy>12) this.vy=12;
-  this.y+=this.vy;
+  this.vy += this.gravity;
+  if(this.vy > 12) this.vy = 12;
 
-  if(this.y+this.height>=HEIGHT-50){
-   this.y=HEIGHT-50-this.height;
-   this.vy=0;
-   this.jumpCount=0;
+  this.y += this.vy;
+
+  if(this.y + this.height >= HEIGHT - 50){
+   this.y = HEIGHT - 50 - this.height;
+   this.vy = 0;
+   this.jumpCount = 0;
   }
  }
 
  jump(){
-  if(this.jumpCount<2){
-   this.vy=-16;
+  if(this.jumpCount < 2){
+   this.vy = -16;
    this.jumpCount++;
    playSound(600,0.1);
   }
  }
 
- moveLeft(){if(this.lane>0)this.lane--;}
- moveRight(){if(this.lane<2)this.lane++;}
  draw(){
-  if(invincible) ctx.globalAlpha=0.5;
+  if(invincible) ctx.globalAlpha = 0.5;
 
-  ctx.fillStyle="#2ecc71";
+  ctx.fillStyle = "#2ecc71";
   ctx.fillRect(this.x,this.y,this.width,this.height);
 
-  ctx.globalAlpha=1;
+  ctx.globalAlpha = 1;
  }
 }
 
-let player=new Player();
+let player = new Player();
 
 /* ========= 장애물 ========= */
 class Obstacle{
  constructor(distance){
-  this.lane=Math.floor(Math.random()*3);
-  this.width=60;
-  this.height=Math.random()>0.5?80:50;
-  this.x=WIDTH+distance;
-  this.y=HEIGHT-50-this.height;
+  this.width = 60;
+  this.height = Math.random()>0.5 ? 80 : 50;
+  this.x = WIDTH + distance;
+  this.y = HEIGHT - 50 - this.height;
  }
- update(){this.x-=gameSpeed;}
+
+ update(){
+  this.x -= gameSpeed;
+ }
+
  draw(){
-  ctx.fillStyle="purple";
+  ctx.fillStyle = "purple";
   ctx.fillRect(this.x,this.y,this.width,this.height);
  }
 }
@@ -120,67 +126,75 @@ class Obstacle{
 /* ========= 코인 ========= */
 class Coin{
  constructor(distance){
-  this.lane=Math.floor(Math.random()*3);
-  this.x=WIDTH+distance;
-  this.y=HEIGHT-120;
-  this.r=15;
+  this.radius = 15;
+  this.x = WIDTH + distance;
+  this.y = HEIGHT - 120;
  }
- update(){this.x-=gameSpeed;}
+
+ update(){
+  this.x -= gameSpeed;
+ }
+
  draw(){
-  ctx.fillStyle="gold";
+  ctx.fillStyle = "gold";
   ctx.beginPath();
-  ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+  ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
   ctx.fill();
  }
 }
 
 /* ========= 충돌 ========= */
 function rectCollide(a,b){
- return a.x<b.x+b.width &&
-        a.x+a.width>b.x &&
-        a.y<b.y+b.height &&
-        a.y+a.height>b.y;
+ return a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y;
 }
+
 function circleCollide(p,c){
- let dx=(p.x+30)-c.x;
- let dy=(p.y+40)-c.y;
- return Math.sqrt(dx*dx+dy*dy)<30;
+ let dx = (p.x+30) - c.x;
+ let dy = (p.y+40) - c.y;
+ return Math.sqrt(dx*dx+dy*dy) < 30;
 }
 
 /* ========= 입력 ========= */
-let sx=0,sy=0;
-canvas.addEventListener("touchstart",e=>{
- sx=e.touches[0].clientX;
- sy=e.touches[0].clientY;
- if(state==="intro") state="play";
+canvas.addEventListener("touchend",()=>{
+ if(state === "intro"){
+   state = "play";
+   return;
+ }
+
+ if(state === "play"){
+   player.jump();
+ }
 });
-canvas.addEventListener("touchend",e=>{
- if(state!=="play") return;
- let dx=e.changedTouches[0].clientX-sx;
- let dy=e.changedTouches[0].clientY-sy;
- if(Math.abs(dx)>Math.abs(dy)){
-  if(dx>40) player.moveRight();
-  if(dx<-40) player.moveLeft();
- }else{
-  if(dy<-40) player.jump();
+
+document.addEventListener("keydown",(e)=>{
+ if(state !== "play") return;
+ if(e.code === "Space"){
+   player.jump();
  }
 });
 
 /* ========= 업데이트 ========= */
 function update(){
- if(state!=="play") return;
+ if(state !== "play") return;
 
  player.update();
 
- if(spawnDelay>0){
+ if(spawnDelay > 0){
   spawnDelay--;
  }else{
-  spawnCounter++;
-  if(spawnCounter>90){
-   let dist=Math.random()*300+200;
+  spawnTimer++;
+  if(spawnTimer > 90){
+   let dist = Math.random()*300 + 200;
    obstacles.push(new Obstacle(dist));
-   if(Math.random()>0.5) items.push(new Coin(dist+150));
-   spawnCounter=0;
+
+   if(Math.random()>0.5){
+    items.push(new Coin(dist+150));
+   }
+
+   spawnTimer = 0;
   }
  }
 
@@ -188,12 +202,15 @@ function update(){
  items.forEach(i=>i.update());
 
  obstacles.forEach(o=>{
-  if(rectCollide(player,o)&&!invincible){
+  if(rectCollide(player,o) && !invincible){
    health--;
-   invincible=true;
-   invTimer=60;
+   invincible = true;
+   invTimer = 60;
    playSound(150,0.2);
-   if(health<=0) state="gameover";
+
+   if(health <= 0){
+    state = "gameover";
+   }
   }
  });
 
@@ -201,16 +218,18 @@ function update(){
   if(circleCollide(player,i)){
    coins++;
    playSound(900,0.1);
-   i.x=-100;
+   i.x = -100;
   }
  });
 
- obstacles=obstacles.filter(o=>o.x>-100);
- items=items.filter(i=>i.x>-100);
+ obstacles = obstacles.filter(o=>o.x > -100);
+ items = items.filter(i=>i.x > -100);
 
  if(invincible){
   invTimer--;
-  if(invTimer<=0) invincible=false;
+  if(invTimer <= 0){
+   invincible = false;
+  }
  }
 }
 
@@ -218,39 +237,45 @@ function update(){
 function draw(){
  ctx.clearRect(0,0,WIDTH,HEIGHT);
 
- if(state==="intro"){
-  ctx.fillStyle="black";
+ if(state === "intro"){
+  ctx.fillStyle = "black";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
-  ctx.fillStyle="white";
-  ctx.font="40px Arial";
-  ctx.fillText("TAP TO START",350,300);
+  ctx.fillStyle = "white";
+  ctx.font = "40px Arial";
+  ctx.fillText("TAP OR PRESS SPACE TO START",220,300);
   return;
  }
 
- if(state==="gameover"){
-  ctx.fillStyle="black";
+ if(state === "gameover"){
+  ctx.fillStyle = "black";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
-  ctx.fillStyle="red";
-  ctx.font="50px Arial";
-  ctx.fillText("GAME OVER",330,300);
+  ctx.fillStyle = "red";
+  ctx.font = "50px Arial";
+  ctx.fillText("GAME OVER",330,280);
+  ctx.fillStyle = "white";
+  ctx.font = "25px Arial";
+  ctx.fillText("Tap to Restart",380,330);
   return;
  }
 
- ctx.fillStyle="#87ceeb";
+ ctx.fillStyle = "#87ceeb";
  ctx.fillRect(0,0,WIDTH,HEIGHT);
- ctx.fillStyle="green";
+
+ ctx.fillStyle = "green";
  ctx.fillRect(0,HEIGHT-50,WIDTH,50);
 
  obstacles.forEach(o=>o.draw());
  items.forEach(i=>i.draw());
+
  player.draw();
 
- ctx.fillStyle="black";
- ctx.fillText("Score:"+score,20,30);
- ctx.fillText("Coins:"+coins,20,60);
+ ctx.fillStyle = "black";
+ ctx.font = "20px Arial";
+ ctx.fillText("Score: "+score,20,30);
+ ctx.fillText("Coins: "+coins,20,60);
 
  for(let i=0;i<health;i++){
-  ctx.fillStyle="red";
+  ctx.fillStyle = "red";
   ctx.beginPath();
   ctx.arc(900+i*30,30,10,0,Math.PI*2);
   ctx.fill();
@@ -263,7 +288,9 @@ function loop(){
  draw();
  requestAnimationFrame(loop);
 }
+
 loop();
 </script>
+
 </body>
 </html>
