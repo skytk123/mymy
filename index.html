@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Clean</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Fantasy Runner Fullscreen</title>
 <style>
-
-canvas{
+html, body{
+  margin:0;
+  padding:0;
+  overflow:hidden;
   background:#87ceeb;
+}
+canvas{
+  display:block;
 }
 #rotateMessage{
  position:fixed;
@@ -27,37 +32,21 @@ canvas{
 <canvas id="game"></canvas>
 
 <script>
-/* ===== 해상도 ===== */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-const W=1000;
-const H=600;
+let W,H;
 
-canvas.width=W;
-canvas.height=H;
-
-/* ===== 비율 유지 (잘림 방지) ===== */
+/* ===== 전체화면 크기 맞추기 ===== */
 function resizeCanvas(){
+  W = window.innerWidth;
+  H = window.innerHeight;
 
-  const scaleX = window.innerWidth / W;
-  const scaleY = window.innerHeight / H;
-
-  const scale = Math.min(scaleX, scaleY);
-
-  canvas.style.width = W * scale + "px";
-  canvas.style.height = H * scale + "px";
-
-  // 중앙 정렬 보장
-  canvas.style.position = "absolute";
-  canvas.style.left = "50%";
-  canvas.style.top = "50%";
-  canvas.style.transform = "translate(-50%, -50%)";
+  canvas.width = W;
+  canvas.height = H;
 }
-
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize",resizeCanvas);
 resizeCanvas();
-
 
 /* ===== 방향 체크 ===== */
 function checkOrientation(){
@@ -70,9 +59,9 @@ window.addEventListener("resize",checkOrientation);
 checkOrientation();
 
 /* ===== 변수 ===== */
-let gravity=0.45;
+let gravity=0.5;
 let stage=1,score=0,totalScore=0;
-let spacing=450,gameSpeed=3;
+let spacing=400,gameSpeed=3;
 let health=3;
 let invincible=false,invTimer=0;
 let gameActive=true,gameOver=false,ending=false;
@@ -80,9 +69,8 @@ let obstacles=[],items=[],clouds=[];
 let highScore=localStorage.getItem("highScore")||0;
 let audioCtx=null;
 
-/* ===== 플레이어 ===== */
 let player={
- x:200,y:H-150,
+ x:200,y:0,
  width:60,height:60,
  velocityY:0,jumpCount:0
 };
@@ -108,9 +96,10 @@ function initGame(){
 
 function startStage(){
  score=0;obstacles=[];items=[];
- spacing=520-stage*25;
- if(spacing<260)spacing=260;
+ spacing=500-stage*20;
+ if(spacing<250)spacing=250;
  gameSpeed=2+stage;
+
  player.y=H-150;
  player.velocityY=0;
  player.jumpCount=0;
@@ -118,21 +107,20 @@ function startStage(){
 
 initGame();
 
-/* ===== 점프 입력 ===== */
+/* ===== 점프 ===== */
 function jump(){
  if(gameOver){initGame();return;}
  if(!gameActive)return;
 
  if(player.jumpCount<3){
-  if(player.jumpCount===0)player.velocityY=-18;
-  else if(player.jumpCount===1)player.velocityY=-17;
-  else player.velocityY=-15;
+  if(player.jumpCount===0)player.velocityY=-20;
+  else if(player.jumpCount===1)player.velocityY=-18;
+  else player.velocityY=-16;
   player.jumpCount++;
  }
 
- // 점프 소리
  if(!audioCtx)
-   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
  let osc=audioCtx.createOscillator();
  osc.type="square";
  osc.frequency.value=300;
@@ -141,18 +129,13 @@ function jump(){
  osc.stop(audioCtx.currentTime+0.1);
 }
 
-// 키보드 점프
 document.addEventListener("keydown",e=>{
  if(e.key===" "||e.key==="ArrowUp")jump();
 });
-
-// 모바일 터치 점프
 canvas.addEventListener("touchstart",e=>{
  e.preventDefault();
  jump();
 });
-
-// 마우스 클릭 점프
 canvas.addEventListener("mousedown",jump);
 
 /* ===== 생성 ===== */
@@ -235,7 +218,6 @@ function update(){
    obj.passed=true;
    score++;
    totalScore++;
-
    if(totalScore>highScore){
     highScore=totalScore;
     localStorage.setItem("highScore",highScore);
@@ -279,10 +261,9 @@ function draw(){
   ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("THE END",400,250);
+  ctx.fillText("THE END",W/2-120,H/2-40);
   ctx.font="30px Arial";
-  ctx.fillText("Final Score: "+totalScore,380,300);
-  ctx.fillText("High Score: "+highScore,380,340);
+  ctx.fillText("Final Score: "+totalScore,W/2-120,H/2+10);
   return;
  }
 
@@ -291,9 +272,9 @@ function draw(){
   ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("GAME OVER",380,250);
+  ctx.fillText("GAME OVER",W/2-150,H/2-40);
   ctx.font="25px Arial";
-  ctx.fillText("Tap to Restart",430,300);
+  ctx.fillText("Tap to Restart",W/2-90,H/2+20);
   return;
  }
 
@@ -346,17 +327,8 @@ function draw(){
    ctx.closePath();
    ctx.fill();
   }else{
-   let cx=obj.x+40,cy=obj.y+100;
    ctx.fillStyle="#4b0082";
-   ctx.beginPath();
-   ctx.ellipse(cx,cy,40,80,0,0,Math.PI*2);
-   ctx.fill();
-
-   ctx.fillStyle="white";
-   ctx.beginPath();
-   ctx.arc(cx-15,cy-30,10,0,Math.PI*2);
-   ctx.arc(cx+15,cy-30,10,0,Math.PI*2);
-   ctx.fill();
+   ctx.fillRect(obj.x,obj.y,obj.width,obj.height);
   }
  });
 
@@ -385,4 +357,3 @@ loop();
 </script>
 </body>
 </html>
-
