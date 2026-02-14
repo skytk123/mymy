@@ -12,444 +12,342 @@ canvas{display:block;margin:0 auto;background:#87ceeb;}
 <canvas id="game"></canvas>
 
 <script>
-/* ================= ENGINE ================= */
+/* ================== 기본 설정 ================== */
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const WIDTH=1000;
-const HEIGHT=600;
+const WIDTH = 1000;
+const HEIGHT = 600;
 
-canvas.width=WIDTH;
-canvas.height=HEIGHT;
-canvas.style.width="100vw";
-canvas.style.height="100vh";
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+canvas.style.width = "100vw";
+canvas.style.height = "100vh";
 
-/* ================= STATE ================= */
+/* ================== 상태 ================== */
 
-const GameState={
- INTRO:"intro",
- PLAYING:"playing",
- GAMEOVER:"gameover"
+const GameState = {
+  INTRO: "intro",
+  PLAYING: "playing",
+  GAMEOVER: "gameover"
 };
 
-let state=GameState.INTRO;
+let state = GameState.INTRO;
 
-/* ================= GLOBAL DATA ================= */
+/* ================== 글로벌 데이터 ================== */
 
-const LANES=[WIDTH*0.25, WIDTH*0.5, WIDTH*0.75];
+const LANES = [WIDTH*0.25, WIDTH*0.5, WIDTH*0.75];
 
-let score=0;
-let coins=0;
-let health=3;
-let gameSpeed=4;
+let score = 0;
+let coins = 0;
+let health = 3;
+let gameSpeed = 4;
 
-let obstacles=[];
-let coinsArr=[];
-let particles=[];
+let obstacles = [];
+let coinsArr = [];
+let particles = [];
 
-let spawnTimer= -120;
-let combo=0;
-let comboTimer=0;
+let spawnTimer = -120;
 
-let boss=null;
-let bossMode=false;
+let invincible = false;
+let invincibleTimer = 0;
 
-let lastTap=0;
+/* ================== 입력 ================== */
 
-/* ================= INPUT ================= */
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTap = 0;
 
-let touchStartX=0;
-let touchStartY=0;
-
-canvas.addEventListener("touchstart",e=>{
- touchStartX=e.touches[0].clientX;
- touchStartY=e.touches[0].clientY;
+canvas.addEventListener("touchstart", e=>{
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
 });
 
-canvas.addEventListener("touchend",e=>{
+canvas.addEventListener("touchend", e=>{
 
- let dx=e.changedTouches[0].clientX-touchStartX;
- let dy=e.changedTouches[0].clientY-touchStartY;
+  let dx = e.changedTouches[0].clientX - touchStartX;
+  let dy = e.changedTouches[0].clientY - touchStartY;
 
- if(state===GameState.INTRO){
-   state=GameState.PLAYING;
-   return;
- }
+  if(state === GameState.INTRO){
+    state = GameState.PLAYING;
+    return;
+  }
 
- if(state===GameState.GAMEOVER){
-   restart();
-   return;
- }
+  if(state === GameState.GAMEOVER){
+    restart();
+    return;
+  }
 
- let now=new Date().getTime();
- if(now-lastTap<300 && coins>=20){
-   obstacles=[];
-   if(boss) boss.health-=3;
-   coins-=20;
-   spawnParticles(player.x+30,player.y+40,"cyan");
- }
- lastTap=now;
+  let now = Date.now();
+  if(now - lastTap < 300 && coins >= 20){
+    obstacles = [];
+    coins -= 20;
+  }
+  lastTap = now;
 
- handleSwipe(dx,dy);
+  handleSwipe(dx, dy);
 });
 
-/* ================= PLAYER ================= */
+/* ================== 플레이어 ================== */
 
 class Player{
- constructor(){
-  this.lane=1;
-  this.width=60;
-  this.height=80;
-  this.y=HEIGHT-150;
-  this.velocityY=0;
-  this.gravity=0.6;
-  this.jumpCount=0;
-  this.runFrame=0;
- }
-
- get x(){ return LANES[this.lane]-this.width/2; }
-
- update(){
-  this.runFrame+=0.2;
-  this.velocityY+=this.gravity;
-  this.y+=this.velocityY;
-
-  if(this.y+this.height>=HEIGHT-50){
-   this.y=HEIGHT-50-this.height;
-   this.velocityY=0;
-   this.jumpCount=0;
-  }
- }
-
- jump(){
-  if(this.jumpCount<2){
-   this.velocityY=-16;
-   this.jumpCount++;
-   playSound(600,0.1);
-  }
- }
-
- moveLeft(){ if(this.lane>0) this.lane--; }
- moveRight(){ if(this.lane<2) this.lane++; }
-
- draw(){
- // 그림자
-  ctx.fillStyle="rgba(0,0,0,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(this.x+30,HEIGHT-40,30,12,0,0,Math.PI*2);
-  ctx.fill();
-
-  ctx.save();
-  ctx.translate(this.x+30,this.y+40);
-
-  if(this.velocityY !== 0){
-    ctx.rotate(this.velocityY * 0.02);
+  constructor(){
+    this.lane = 1;
+    this.width = 60;
+    this.height = 80;
+    this.y = HEIGHT - 50 - this.height;
+    this.velocityY = 0;
+    this.gravity = 0.6;
+    this.jumpCount = 0;
+    this.runFrame = 0;
   }
 
-  ctx.translate(-(this.x+30),-(this.y+40));
+  get x(){ return LANES[this.lane] - this.width/2; }
 
-  // 몸통
-  ctx.fillStyle="#2ecc71";
-  ctx.fillRect(this.x+15,this.y+35,30,35);
+  update(){
+    this.runFrame += 0.2;
+    this.velocityY += this.gravity;
+    if(this.velocityY > 12) this.velocityY = 12;
 
-  // 머리
-  ctx.fillStyle="#ffcc99";
-  ctx.beginPath();
-  ctx.arc(this.x+30,this.y+20,20,0,Math.PI*2);
-  ctx.fill();
+    this.y += this.velocityY;
 
-  // 눈
-  ctx.fillStyle="black";
-  ctx.beginPath();
-  ctx.arc(this.x+23,this.y+18,3,0,Math.PI*2);
-  ctx.arc(this.x+37,this.y+18,3,0,Math.PI*2);
-  ctx.fill();
+    if(this.y + this.height >= HEIGHT - 50){
+      this.y = HEIGHT - 50 - this.height;
+      this.velocityY = 0;
+      this.jumpCount = 0;
+    }
+  }
 
-  // 다리
-  let legOffset=Math.sin(this.runFrame)*8;
+  jump(){
+    if(this.jumpCount < 2){
+      this.velocityY = -16;
+      this.jumpCount++;
+    }
+  }
 
-  ctx.strokeStyle="#222";
-  ctx.lineWidth=4;
+  moveLeft(){ if(this.lane > 0) this.lane--; }
+  moveRight(){ if(this.lane < 2) this.lane++; }
 
-  ctx.beginPath();
-  ctx.moveTo(this.x+25,this.y+70);
-  ctx.lineTo(this.x+25+legOffset,this.y+90);
-  ctx.stroke();
+  draw(){
+    if(invincible){
+      ctx.globalAlpha = 0.5;
+    }
 
-  ctx.beginPath();
-  ctx.moveTo(this.x+35,this.y+70);
-  ctx.lineTo(this.x+35-legOffset,this.y+90);
-  ctx.stroke();
+    // 그림자
+    ctx.fillStyle="rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(this.x+30, HEIGHT-40, 30, 12, 0, 0, Math.PI*2);
+    ctx.fill();
 
-  ctx.restore();
- }
+    // 몸통
+    ctx.fillStyle="#2ecc71";
+    ctx.fillRect(this.x+15,this.y+35,30,35);
+
+    // 머리
+    ctx.fillStyle="#ffcc99";
+    ctx.beginPath();
+    ctx.arc(this.x+30,this.y+20,20,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+  }
 }
 
-let player=new Player();
+let player = new Player();
 
-/* ================= OBSTACLE ================= */
+/* ================== 장애물 ================== */
 
 class Obstacle{
- constructor(){
-  this.lane=Math.floor(Math.random()*3);
-  this.width=60;
-  this.height=Math.random()>0.5?80:50;
-  this.x=LANES[this.lane]-this.width/2;
-  this.y=HEIGHT-50-this.height;
-  this.passed=false;
- }
+  constructor(){
+    this.lane = Math.floor(Math.random()*3);
+    this.width = 60;
+    this.height = Math.random()>0.5?80:50;
+    this.x = WIDTH + 100;
+    this.y = HEIGHT - 50 - this.height;
+    this.passed = false;
+  }
 
- update(){ this.x-=gameSpeed; }
+  update(){
+    this.x -= gameSpeed;
+  }
 
- draw(){
-  ctx.fillStyle="#8e44ad";
-  ctx.fillRect(this.x,this.y,this.width,this.height);
- }
+  draw(){
+    ctx.fillStyle="#8e44ad";
+    ctx.fillRect(this.x,this.y,this.width,this.height);
+  }
 }
 
-/* ================= COIN ================= */
+/* ================== 코인 ================== */
 
 class Coin{
- constructor(){
-  this.lane=Math.floor(Math.random()*3);
-  this.radius=15;
-  this.x=LANES[this.lane];
-  this.y=HEIGHT-120;
-  this.collected=false;
- }
+  constructor(){
+    this.lane = Math.floor(Math.random()*3);
+    this.radius = 15;
+    this.x = WIDTH + 100;
+    this.y = HEIGHT - 120;
+    this.collected = false;
+  }
 
- update(){ this.x-=gameSpeed; }
+  update(){ this.x -= gameSpeed; }
 
- draw(){
-  ctx.fillStyle="gold";
-  ctx.beginPath();
-  ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-  ctx.fill();
- }
+  draw(){
+    ctx.fillStyle="gold";
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+    ctx.fill();
+  }
 }
 
-/* ================= BOSS ================= */
-
-class Boss{
- constructor(){
-  this.x=WIDTH+200;
-  this.y=HEIGHT-200;
-  this.width=120;
-  this.height=150;
-  this.health=10;
- }
-
- update(){ this.x-=gameSpeed; }
-
- draw(){
-  ctx.fillStyle="darkred";
-  ctx.fillRect(this.x,this.y,this.width,this.height);
- }
-}
-
-/* ================= UTIL ================= */
-
-function spawnParticles(x,y,color){
- for(let i=0;i<10;i++){
-  particles.push({
-   x:x,y:y,
-   dx:(Math.random()-0.5)*5,
-   dy:(Math.random()-0.5)*5,
-   life:30,
-   color:color
-  });
- }
-}
+/* ================== 충돌 ================== */
 
 function isColliding(a,b){
- return a.x<b.x+b.width &&
-        a.x+a.width>b.x &&
-        a.y<b.y+b.height &&
-        a.y+a.height>b.y;
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
 }
 
 function isCircleColliding(p,c){
- let dx=(p.x+30)-c.x;
- let dy=(p.y+40)-c.y;
- return Math.sqrt(dx*dx+dy*dy)<30;
+  let dx = (p.x+30) - c.x;
+  let dy = (p.y+40) - c.y;
+  return Math.sqrt(dx*dx+dy*dy) < 30;
 }
 
-function playSound(freq,duration){
- let audioCtx=new(window.AudioContext||window.webkitAudioContext)();
- let osc=audioCtx.createOscillator();
- let gain=audioCtx.createGain();
- osc.connect(gain);
- gain.connect(audioCtx.destination);
- osc.frequency.value=freq;
- osc.start();
- gain.gain.setValueAtTime(0.2,audioCtx.currentTime);
- gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
- osc.stop(audioCtx.currentTime+duration);
-}
-
-function handleSwipe(dx,dy){
- if(Math.abs(dx)>Math.abs(dy)){
-  if(dx>40) player.moveRight();
-  if(dx<-40) player.moveLeft();
- }
- else{
-  if(dy<-40) player.jump();
- }
-}
-
-function restart(){
- score=0;
- coins=0;
- health=3;
- obstacles=[];
- coinsArr=[];
- particles=[];
- boss=null;
- bossMode=false;
- state=GameState.PLAYING;
-}
-
-/* ================= UPDATE ================= */
+/* ================== 업데이트 ================== */
 
 function update(){
- if(state!==GameState.PLAYING) return;
+  if(state !== GameState.PLAYING) return;
 
- player.update();
+  player.update();
 
- spawnTimer++;
- if(spawnTimer>90){
-  obstacles.push(new Obstacle());
-  if(Math.random()>0.5) coinsArr.push(new Coin());
-  spawnTimer=0;
- }
-
- obstacles.forEach(o=>o.update());
- coinsArr.forEach(c=>c.update());
-
- obstacles.forEach(o=>{
-  if(isColliding(player,o)){
-   health--;
-   spawnParticles(player.x+30,player.y+40,"red");
-   playSound(150,0.2);
-   if(health<=0) state=GameState.GAMEOVER;
+  spawnTimer++;
+  if(spawnTimer > 90){
+    obstacles.push(new Obstacle());
+    if(Math.random()>0.5) coinsArr.push(new Coin());
+    spawnTimer = 0;
   }
-  if(!o.passed && o.x<player.x){
-   o.passed=true;
-   score++;
+
+  obstacles.forEach(o=>o.update());
+  coinsArr.forEach(c=>c.update());
+
+  obstacles.forEach(o=>{
+    if(isColliding(player,o) && !invincible){
+      health--;
+      invincible = true;
+      invincibleTimer = 60;
+
+      if(health <= 0){
+        state = GameState.GAMEOVER;
+      }
+    }
+
+    if(!o.passed && o.x < player.x){
+      o.passed = true;
+      score++;
+    }
+  });
+
+  coinsArr.forEach(c=>{
+    if(!c.collected && isCircleColliding(player,c)){
+      c.collected = true;
+      coins++;
+    }
+  });
+
+  obstacles = obstacles.filter(o=>o.x > -100);
+  coinsArr = coinsArr.filter(c=>!c.collected && c.x > -50);
+
+  if(invincible){
+    invincibleTimer--;
+    if(invincibleTimer <= 0){
+      invincible = false;
+    }
   }
- });
-
- coinsArr.forEach(c=>{
-  if(!c.collected && isCircleColliding(player,c)){
-   c.collected=true;
-   coins++;
-   spawnParticles(c.x,c.y,"yellow");
-  }
- });
-
- obstacles=obstacles.filter(o=>o.x>-100);
- coinsArr=coinsArr.filter(c=>!c.collected && c.x>-50);
-
- particles.forEach(p=>{
-  p.x+=p.dx;
-  p.y+=p.dy;
-  p.life--;
- });
- particles=particles.filter(p=>p.life>0);
-
- if(score>=20 && !bossMode){
-  bossMode=true;
-  boss=new Boss();
- }
-
- if(bossMode && boss){
-  boss.update();
-  if(isColliding(player,boss)){
-   health--;
-   if(health<=0) state=GameState.GAMEOVER;
-  }
-  if(boss.health<=0){
-   bossMode=false;
-   boss=null;
-  }
- }
 }
 
-/* ================= DRAW ================= */
+/* ================== 그리기 ================== */
 
 function draw(){
- ctx.clearRect(0,0,WIDTH,HEIGHT);
+  ctx.clearRect(0,0,WIDTH,HEIGHT);
 
- if(state===GameState.INTRO){
-  ctx.fillStyle="black";
+  if(state === GameState.INTRO){
+    ctx.fillStyle="black";
+    ctx.fillRect(0,0,WIDTH,HEIGHT);
+    ctx.fillStyle="white";
+    ctx.font="50px Arial";
+    ctx.fillText("FANTASY RUNNER",250,250);
+    ctx.font="25px Arial";
+    ctx.fillText("TAP TO START",380,320);
+    return;
+  }
+
+  if(state === GameState.GAMEOVER){
+    ctx.fillStyle="rgba(0,0,0,0.8)";
+    ctx.fillRect(0,0,WIDTH,HEIGHT);
+    ctx.fillStyle="red";
+    ctx.font="60px Arial";
+    ctx.fillText("GAME OVER",300,250);
+    ctx.fillStyle="white";
+    ctx.font="25px Arial";
+    ctx.fillText("Tap to Restart",380,320);
+    return;
+  }
+
+  ctx.fillStyle="#87ceeb";
   ctx.fillRect(0,0,WIDTH,HEIGHT);
-  ctx.fillStyle="white";
-  ctx.font="50px Arial";
-  ctx.fillText("FANTASY RUNNER",250,250);
-  ctx.font="25px Arial";
-  ctx.fillText("TAP TO START",380,320);
-  return;
- }
 
- if(state===GameState.GAMEOVER){
-  ctx.fillStyle="rgba(0,0,0,0.8)";
-  ctx.fillRect(0,0,WIDTH,HEIGHT);
-  ctx.fillStyle="red";
-  ctx.font="60px Arial";
-  ctx.fillText("GAME OVER",300,250);
-  ctx.fillStyle="white";
-  ctx.font="25px Arial";
-  ctx.fillText("Tap to Restart",380,320);
-  return;
- }
+  ctx.fillStyle="green";
+  ctx.fillRect(0,HEIGHT-50,WIDTH,50);
 
- if(score<20) ctx.fillStyle="#87ceeb";
- else if(score<40) ctx.fillStyle="#ff9966";
- else ctx.fillStyle="#0b1d51";
+  obstacles.forEach(o=>o.draw());
+  coinsArr.forEach(c=>c.draw());
 
- ctx.fillRect(0,0,WIDTH,HEIGHT);
+  player.draw();
 
- ctx.fillStyle="green";
- ctx.fillRect(0,HEIGHT-50,WIDTH,50);
-
- obstacles.forEach(o=>o.draw());
- coinsArr.forEach(c=>c.draw());
-
- if(bossMode && boss){
-  boss.draw();
   ctx.fillStyle="black";
-  ctx.fillRect(WIDTH/2-150,20,300,20);
-  ctx.fillStyle="red";
-  ctx.fillRect(WIDTH/2-150,20,300*(boss.health/10),20);
- }
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,20,30);
+  ctx.fillText("Coins: "+coins,20,60);
 
- player.draw();
-
- particles.forEach(p=>{
-  ctx.fillStyle=p.color;
-  ctx.fillRect(p.x,p.y,4,4);
- });
-
- ctx.fillStyle="black";
- ctx.font="20px Arial";
- ctx.fillText("Score: "+score,20,30);
- ctx.fillText("Coins: "+coins,20,60);
-
- for(let i=0;i<health;i++){
-  ctx.fillStyle="red";
-  ctx.beginPath();
-  ctx.arc(900+i*30,30,10,0,Math.PI*2);
-  ctx.fill();
- }
+  for(let i=0;i<health;i++){
+    ctx.fillStyle="red";
+    ctx.beginPath();
+    ctx.arc(900+i*30,30,10,0,Math.PI*2);
+    ctx.fill();
+  }
 }
 
-/* ================= LOOP ================= */
+/* ================== 스와이프 ================== */
+
+function handleSwipe(dx,dy){
+  if(Math.abs(dx) > Math.abs(dy)){
+    if(dx > 40) player.moveRight();
+    if(dx < -40) player.moveLeft();
+  } else {
+    if(dy < -40) player.jump();
+  }
+}
+
+/* ================== 재시작 ================== */
+
+function restart(){
+  score = 0;
+  coins = 0;
+  health = 3;
+  obstacles = [];
+  coinsArr = [];
+  spawnTimer = -120;
+  invincible = false;
+  state = GameState.PLAYING;
+}
+
+/* ================== 루프 ================== */
 
 function loop(){
- update();
- draw();
- requestAnimationFrame(loop);
+  update();
+  draw();
+  requestAnimationFrame(loop);
 }
 
 loop();
