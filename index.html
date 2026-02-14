@@ -2,29 +2,29 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Ultimate</title>
+<title>Fantasy Runner Clean</title>
 <style>
-body{margin:0;overflow:hidden;background:#87ceeb;}
-canvas{display:block;margin:0 auto;}
-.controls{
- position:fixed;
- bottom:15px;
- left:50%;
- transform:translateX(-50%);
- display:flex;
- gap:30px;
+body{
+  margin:0;
+  overflow:hidden;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#87ceeb;
 }
-button{
- width:70px;height:70px;
- font-size:24px;border-radius:50%;
+canvas{
+  background:#87ceeb;
 }
 #rotateMessage{
- position:fixed;top:0;left:0;
+ position:fixed;
+ top:0;left:0;
  width:100%;height:100%;
  background:black;color:white;
- display:none;justify-content:center;
- align-items:center;text-align:center;
- font-size:24px;z-index:999;
+ display:none;
+ justify-content:center;
+ align-items:center;
+ font-size:24px;
+ z-index:999;
 }
 </style>
 </head>
@@ -33,41 +33,35 @@ button{
 <div id="rotateMessage">📱 가로로 돌려주세요</div>
 <canvas id="game"></canvas>
 
-<div class="controls">
-<button id="left">⬅️</button>
-<button id="jumpBtn">⬆️</button>
-<button id="right">➡️</button>
-</div>
-
 <script>
-/* ===== 기본 설정 ===== */
+/* ===== 해상도 ===== */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
-const W=1000,H=600;
-canvas.width=W;canvas.height=H;
 
-/*canvas.style.width="100vw";
-canvas.style.height="100vh";*/
+const W=1000;
+const H=600;
 
+canvas.width=W;
+canvas.height=H;
+
+/* ===== 비율 유지 (잘림 방지) ===== */
 function resizeCanvas(){
-    let scale = Math.min(
-        window.innerWidth / W,
-        window.innerHeight / H
-    );
-
-    canvas.style.width = W * scale + "px";
-    canvas.style.height = H * scale + "px";
+ let scale=Math.min(
+   window.innerWidth/W,
+   window.innerHeight/H
+ );
+ canvas.style.width=W*scale+"px";
+ canvas.style.height=H*scale+"px";
 }
-
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize",resizeCanvas);
 resizeCanvas();
-
 
 /* ===== 방향 체크 ===== */
 function checkOrientation(){
  if(window.innerHeight>window.innerWidth)
   rotateMessage.style.display="flex";
- else rotateMessage.style.display="none";
+ else
+  rotateMessage.style.display="none";
 }
 window.addEventListener("resize",checkOrientation);
 checkOrientation();
@@ -76,11 +70,10 @@ checkOrientation();
 let gravity=0.45;
 let stage=1,score=0,totalScore=0;
 let spacing=450,gameSpeed=3;
-let health=3,invincible=false,invTimer=0;
+let health=3;
+let invincible=false,invTimer=0;
 let gameActive=true,gameOver=false,ending=false;
-let keys={left:false,right:false};
-let obstacles=[],items=[];
-let clouds=[];
+let obstacles=[],items=[],clouds=[];
 let highScore=localStorage.getItem("highScore")||0;
 let audioCtx=null;
 
@@ -88,7 +81,7 @@ let audioCtx=null;
 let player={
  x:200,y:H-150,
  width:60,height:60,
- velocityY:0,speed:6,jumpCount:0
+ velocityY:0,jumpCount:0
 };
 
 /* ===== 초기화 ===== */
@@ -106,19 +99,23 @@ function initClouds(){
 function initGame(){
  stage=1;totalScore=0;health=3;
  gameOver=false;ending=false;gameActive=true;
- startStage();initClouds();
+ startStage();
+ initClouds();
 }
 
 function startStage(){
  score=0;obstacles=[];items=[];
- spacing=520-stage*25;if(spacing<260)spacing=260;
+ spacing=520-stage*25;
+ if(spacing<260)spacing=260;
  gameSpeed=2+stage;
- player.y=H-150;player.velocityY=0;player.jumpCount=0;
+ player.y=H-150;
+ player.velocityY=0;
+ player.jumpCount=0;
 }
 
 initGame();
 
-/* ===== 입력 ===== */
+/* ===== 점프 입력 ===== */
 function jump(){
  if(gameOver){initGame();return;}
  if(!gameActive)return;
@@ -130,8 +127,9 @@ function jump(){
   player.jumpCount++;
  }
 
- // 효과음
- if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ // 점프 소리
+ if(!audioCtx)
+   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
  let osc=audioCtx.createOscillator();
  osc.type="square";
  osc.frequency.value=300;
@@ -140,27 +138,29 @@ function jump(){
  osc.stop(audioCtx.currentTime+0.1);
 }
 
+// 키보드 점프
 document.addEventListener("keydown",e=>{
- if(e.key==="ArrowLeft")keys.left=true;
- if(e.key==="ArrowRight")keys.right=true;
  if(e.key===" "||e.key==="ArrowUp")jump();
 });
-document.addEventListener("keyup",e=>{
- if(e.key==="ArrowLeft")keys.left=false;
- if(e.key==="ArrowRight")keys.right=false;
+
+// 모바일 터치 점프
+canvas.addEventListener("touchstart",e=>{
+ e.preventDefault();
+ jump();
 });
-left.ontouchstart=()=>keys.left=true;
-left.ontouchend=()=>keys.left=false;
-right.ontouchstart=()=>keys.right=true;
-right.ontouchend=()=>keys.right=false;
-jumpBtn.ontouchstart=jump;
+
+// 마우스 클릭 점프
+canvas.addEventListener("mousedown",jump);
 
 /* ===== 생성 ===== */
 function spawnObstacle(){
  if(obstacles.length>=10)return;
+
  let type=obstacles.length<5?"tree":"monster";
  let height=type==="tree"?120:200;
+
  let lastX=obstacles.length?obstacles[obstacles.length-1].x:W;
+
  obstacles.push({
   x:lastX+spacing,
   y:H-50-height,
@@ -184,23 +184,25 @@ function spawnItem(){
 function update(){
  if(!gameActive)return;
 
- if(keys.left)player.x-=player.speed;
- if(keys.right)player.x+=player.speed;
- if(player.x<0)player.x=0;
- if(player.x+player.width>W)player.x=W-player.width;
-
  player.velocityY+=gravity;
  player.y+=player.velocityY;
+
  if(player.y+player.height>=H-50){
   player.y=H-50-player.height;
   player.jumpCount=0;
  }
 
- if(invincible){invTimer--;if(invTimer<=0)invincible=false;}
+ if(invincible){
+  invTimer--;
+  if(invTimer<=0)invincible=false;
+ }
 
  clouds.forEach(c=>{
   c.x-=c.speed;
-  if(c.x<-100){c.x=W+100;c.y=Math.random()*200;}
+  if(c.x<-100){
+   c.x=W+100;
+   c.y=Math.random()*200;
+  }
  });
 
  if(obstacles.length===0||
@@ -211,17 +213,26 @@ function update(){
 
  obstacles.forEach(obj=>{
   obj.x-=gameSpeed;
+
   if(player.x<obj.x+80 &&
      player.x+60>obj.x &&
      player.y<obj.y+obj.height &&
      player.y+60>obj.y){
    if(!obj.hit&&!invincible){
-    obj.hit=true;health--;
-    if(health<=0){gameOver=true;gameActive=false;}
+    obj.hit=true;
+    health--;
+    if(health<=0){
+     gameOver=true;
+     gameActive=false;
+    }
    }
   }
+
   if(!obj.passed&&obj.x+80<player.x){
-   obj.passed=true;score++;totalScore++;
+   obj.passed=true;
+   score++;
+   totalScore++;
+
    if(totalScore>highScore){
     highScore=totalScore;
     localStorage.setItem("highScore",highScore);
@@ -236,7 +247,10 @@ function update(){
      player.y<it.y+30 &&
      player.y+60>it.y){
    if(it.type==="heart"&&health<3)health++;
-   if(it.type==="shield"){invincible=true;invTimer=180;}
+   if(it.type==="shield"){
+    invincible=true;
+    invTimer=180;
+   }
    it.remove=true;
   }
  });
@@ -244,8 +258,12 @@ function update(){
 
  if(score>=10){
   stage++;
-  if(stage>10){ending=true;gameActive=false;}
-  else startStage();
+  if(stage>10){
+   ending=true;
+   gameActive=false;
+  }else{
+   startStage();
+  }
  }
 }
 
@@ -254,7 +272,8 @@ function draw(){
  ctx.clearRect(0,0,W,H);
 
  if(ending){
-  ctx.fillStyle="black";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
   ctx.fillText("THE END",400,250);
@@ -275,7 +294,7 @@ function draw(){
   return;
  }
 
- /* 구름 */
+ // 구름
  clouds.forEach(c=>{
   ctx.fillStyle="white";
   ctx.beginPath();
@@ -285,43 +304,51 @@ function draw(){
   ctx.fill();
  });
 
+ // 바닥
  ctx.fillStyle="green";
  ctx.fillRect(0,H-50,W,50);
 
- /* 플레이어 */
+ // 플레이어
  if(invincible)
   ctx.globalAlpha=0.5+Math.sin(Date.now()*0.02)*0.5;
+
  ctx.fillStyle="#ffcc99";
  ctx.beginPath();
  ctx.arc(player.x+30,player.y+30,30,0,Math.PI*2);
  ctx.fill();
+
  ctx.fillStyle="black";
  ctx.beginPath();
  ctx.arc(player.x+20,player.y+25,5,0,Math.PI*2);
  ctx.arc(player.x+40,player.y+25,5,0,Math.PI*2);
  ctx.fill();
+
  ctx.beginPath();
  ctx.arc(player.x+30,player.y+35,10,0,Math.PI);
  ctx.stroke();
+
  ctx.globalAlpha=1;
 
- /* 장애물 */
+ // 장애물
  obstacles.forEach(obj=>{
   if(obj.type==="tree"){
    ctx.fillStyle="#6b3e26";
    ctx.fillRect(obj.x+30,obj.y+60,20,obj.height-60);
+
    ctx.fillStyle="#0b6623";
    ctx.beginPath();
    ctx.moveTo(obj.x+40,obj.y);
    ctx.lineTo(obj.x,obj.y+80);
    ctx.lineTo(obj.x+80,obj.y+80);
-   ctx.closePath();ctx.fill();
+   ctx.closePath();
+   ctx.fill();
   }else{
    let cx=obj.x+40,cy=obj.y+100;
    ctx.fillStyle="#4b0082";
    ctx.beginPath();
    ctx.ellipse(cx,cy,40,80,0,0,Math.PI*2);
    ctx.fill();
+
    ctx.fillStyle="white";
    ctx.beginPath();
    ctx.arc(cx-15,cy-30,10,0,Math.PI*2);
@@ -330,7 +357,7 @@ function draw(){
   }
  });
 
- /* 아이템 */
+ // 아이템
  items.forEach(it=>{
   ctx.fillStyle=it.type==="heart"?"red":"gold";
   ctx.beginPath();
@@ -346,7 +373,11 @@ function draw(){
 }
 
 /* ===== 루프 ===== */
-function loop(){update();draw();requestAnimationFrame(loop);}
+function loop(){
+ update();
+ draw();
+ requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
