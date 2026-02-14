@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fantasy Runner Final</title>
+<title>Fantasy Runner</title>
 <style>
 body{margin:0;overflow:hidden;background:black;}
 canvas{display:block;margin:0 auto;background:#87ceeb;}
@@ -24,7 +24,6 @@ canvas.style.width="100vw";
 canvas.style.height="100vh";
 
 let state="intro";
-let score=0;
 let health=3;
 let gameSpeed=4;
 
@@ -44,17 +43,13 @@ class Player{
   this.width=60;
   this.height=80;
   this.y=HEIGHT-50-this.height;
-
   this.vy=0;
   this.gravity=0.32;
   this.maxFall=5.5;
   this.jumpCount=0;
-  this.frame=0;
  }
 
  update(){
-  this.frame+=0.2;
-
   this.vy+=this.gravity;
   if(this.vy>this.maxFall) this.vy=this.maxFall;
 
@@ -75,40 +70,10 @@ class Player{
  }
 
  draw(){
-
   if(invincible) ctx.globalAlpha=0.6;
 
-  // 그림자
-  ctx.fillStyle="rgba(0,0,0,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(this.x+30,HEIGHT-40,30,12,0,0,Math.PI*2);
-  ctx.fill();
-
-  // 망토
-  ctx.fillStyle="#e74c3c";
-  ctx.beginPath();
-  ctx.moveTo(this.x+15,this.y+45);
-  ctx.lineTo(this.x-5,this.y+65);
-  ctx.lineTo(this.x+15,this.y+75);
-  ctx.closePath();
-  ctx.fill();
-
-  // 몸통
   ctx.fillStyle="#3498db";
-  ctx.fillRect(this.x+20,this.y+40,20,32);
-
-  // 머리
-  ctx.fillStyle="#ffcc99";
-  ctx.beginPath();
-  ctx.arc(this.x+30,this.y+25,18,0,Math.PI*2);
-  ctx.fill();
-
-  // 눈
-  ctx.fillStyle="black";
-  ctx.beginPath();
-  ctx.arc(this.x+24,this.y+22,3,0,Math.PI*2);
-  ctx.arc(this.x+36,this.y+22,3,0,Math.PI*2);
-  ctx.fill();
+  ctx.fillRect(this.x,this.y,this.width,this.height);
 
   ctx.globalAlpha=1;
  }
@@ -130,70 +95,44 @@ class Obstacle{
 
  draw(){
   ctx.fillStyle="#2c3e50";
-  ctx.beginPath();
-  ctx.moveTo(this.x,this.y+this.height);
-  ctx.lineTo(this.x+30,this.y);
-  ctx.lineTo(this.x+60,this.y+this.height);
-  ctx.closePath();
-  ctx.fill();
- }
-}
-
-/* ================= ITEM ================= */
-
-class Item{
- constructor(){
-  this.x=WIDTH+Math.random()*400+300;
-  this.y=HEIGHT-150;
-  this.size=20;
-  this.frame=0;
- }
-
- update(){
-  this.x-=gameSpeed;
-  this.frame+=0.2;
- }
-
- draw(){
-  let glow=Math.sin(this.frame)*0.5+0.5;
-  ctx.fillStyle=`rgba(0,255,255,${glow})`;
-
-  ctx.beginPath();
-  ctx.moveTo(this.x,this.y);
-  ctx.lineTo(this.x+10,this.y-20);
-  ctx.lineTo(this.x+20,this.y);
-  ctx.lineTo(this.x+10,this.y+20);
-  ctx.closePath();
-  ctx.fill();
+  ctx.fillRect(this.x,this.y,this.width,this.height);
  }
 }
 
 /* ================= INPUT ================= */
 
+function handleStartOrRestart(){
+ startGame();
+}
+
 canvas.addEventListener("touchend",()=>{
- if(state==="intro"){ startGame(); return; }
- if(state==="play"){ player.jump(); }
- if(state==="gameover"){ startGame(); }
+ if(state==="intro" || state==="gameover"){
+  handleStartOrRestart();
+ }else if(state==="play"){
+  player.jump();
+ }
 });
 
 document.addEventListener("keydown",e=>{
- if(e.code==="Space"){
-  if(state==="intro"){ startGame(); return; }
-  if(state==="play"){ player.jump(); }
-  if(state==="gameover"){ startGame(); }
+ if(e.code==="Space" || e.code==="Enter"){
+  if(state==="intro" || state==="gameover"){
+   handleStartOrRestart();
+  }else if(state==="play"){
+   player.jump();
+  }
  }
 });
 
 /* ================= GAME CONTROL ================= */
 
 function startGame(){
- score=0;
  health=3;
  obstacles=[];
  items=[];
  spawnTimer=0;
  spawnDelay=60;
  invincible=false;
+ invTimer=0;
  state="play";
 }
 
@@ -210,13 +149,11 @@ function update(){
   spawnTimer++;
   if(spawnTimer>100){
    obstacles.push(new Obstacle());
-   if(Math.random()>0.5) items.push(new Item());
    spawnTimer=0;
   }
  }
 
  obstacles.forEach(o=>o.update());
- items.forEach(i=>i.update());
 
  obstacles.forEach(o=>{
   if(player.x<o.x+o.width &&
@@ -236,7 +173,6 @@ function update(){
  });
 
  obstacles=obstacles.filter(o=>o.x>-100);
- items=items.filter(i=>i.x>-100);
 
  if(invincible){
   invTimer--;
@@ -266,7 +202,7 @@ function draw(){
   ctx.fillText("GAME OVER",330,280);
   ctx.fillStyle="white";
   ctx.font="25px Arial";
-  ctx.fillText("Tap or Space to Restart",320,330);
+  ctx.fillText("Tap or Space to Restart",300,330);
   return;
  }
 
@@ -277,8 +213,6 @@ function draw(){
  ctx.fillRect(0,HEIGHT-50,WIDTH,50);
 
  obstacles.forEach(o=>o.draw());
- items.forEach(i=>i.draw());
-
  player.draw();
 
  for(let i=0;i<health;i++){
