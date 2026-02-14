@@ -2,22 +2,26 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Fantasy Runner Fullscreen</title>
+<title>Fantasy Runner Full Stretch</title>
 <style>
-html, body{
-  margin:0;
-  padding:0;
-  overflow:hidden;
-  background:#87ceeb;
+html,body{
+ margin:0;
+ padding:0;
+ overflow:hidden;
+ background:#87ceeb;
 }
 canvas{
-  display:block;
+ width:100vw;
+ height:100vh;
+ display:block;
+ background:#87ceeb;
 }
 #rotateMessage{
  position:fixed;
  top:0;left:0;
  width:100%;height:100%;
- background:black;color:white;
+ background:black;
+ color:white;
  display:none;
  justify-content:center;
  align-items:center;
@@ -35,20 +39,13 @@ canvas{
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-let W,H;
+/* 내부 게임 좌표 고정 */
+const W=1000;
+const H=600;
+canvas.width=W;
+canvas.height=H;
 
-/* ===== 전체화면 크기 맞추기 ===== */
-function resizeCanvas(){
-  W = window.innerWidth;
-  H = window.innerHeight;
-
-  canvas.width = W;
-  canvas.height = H;
-}
-window.addEventListener("resize",resizeCanvas);
-resizeCanvas();
-
-/* ===== 방향 체크 ===== */
+/* 방향 체크 */
 function checkOrientation(){
  if(window.innerHeight>window.innerWidth)
   rotateMessage.style.display="flex";
@@ -58,10 +55,10 @@ function checkOrientation(){
 window.addEventListener("resize",checkOrientation);
 checkOrientation();
 
-/* ===== 변수 ===== */
-let gravity=0.5;
+/* ===== 게임 변수 ===== */
+let gravity=0.45;
 let stage=1,score=0,totalScore=0;
-let spacing=400,gameSpeed=3;
+let spacing=450,gameSpeed=3;
 let health=3;
 let invincible=false,invTimer=0;
 let gameActive=true,gameOver=false,ending=false;
@@ -70,9 +67,12 @@ let highScore=localStorage.getItem("highScore")||0;
 let audioCtx=null;
 
 let player={
- x:200,y:0,
- width:60,height:60,
- velocityY:0,jumpCount:0
+ x:200,
+ y:H-150,
+ width:60,
+ height:60,
+ velocityY:0,
+ jumpCount:0
 };
 
 /* ===== 초기화 ===== */
@@ -88,18 +88,23 @@ function initClouds(){
 }
 
 function initGame(){
- stage=1;totalScore=0;health=3;
- gameOver=false;ending=false;gameActive=true;
+ stage=1;
+ totalScore=0;
+ health=3;
+ gameOver=false;
+ ending=false;
+ gameActive=true;
  startStage();
  initClouds();
 }
 
 function startStage(){
- score=0;obstacles=[];items=[];
- spacing=500-stage*20;
- if(spacing<250)spacing=250;
+ score=0;
+ obstacles=[];
+ items=[];
+ spacing=520-stage*25;
+ if(spacing<260)spacing=260;
  gameSpeed=2+stage;
-
  player.y=H-150;
  player.velocityY=0;
  player.jumpCount=0;
@@ -113,9 +118,9 @@ function jump(){
  if(!gameActive)return;
 
  if(player.jumpCount<3){
-  if(player.jumpCount===0)player.velocityY=-20;
-  else if(player.jumpCount===1)player.velocityY=-18;
-  else player.velocityY=-16;
+  if(player.jumpCount===0)player.velocityY=-18;
+  else if(player.jumpCount===1)player.velocityY=-17;
+  else player.velocityY=-15;
   player.jumpCount++;
  }
 
@@ -144,14 +149,16 @@ function spawnObstacle(){
 
  let type=obstacles.length<5?"tree":"monster";
  let height=type==="tree"?120:200;
-
  let lastX=obstacles.length?obstacles[obstacles.length-1].x:W;
 
  obstacles.push({
   x:lastX+spacing,
   y:H-50-height,
-  width:80,height:height,
-  type:type,passed:false,hit:false
+  width:80,
+  height:height,
+  type:type,
+  passed:false,
+  hit:false
  });
 }
 
@@ -261,9 +268,9 @@ function draw(){
   ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("THE END",W/2-120,H/2-40);
+  ctx.fillText("THE END",400,250);
   ctx.font="30px Arial";
-  ctx.fillText("Final Score: "+totalScore,W/2-120,H/2+10);
+  ctx.fillText("Final Score: "+totalScore,380,300);
   return;
  }
 
@@ -272,13 +279,12 @@ function draw(){
   ctx.fillRect(0,0,W,H);
   ctx.fillStyle="white";
   ctx.font="50px Arial";
-  ctx.fillText("GAME OVER",W/2-150,H/2-40);
+  ctx.fillText("GAME OVER",380,250);
   ctx.font="25px Arial";
-  ctx.fillText("Tap to Restart",W/2-90,H/2+20);
+  ctx.fillText("Tap to Restart",430,300);
   return;
  }
 
- // 구름
  clouds.forEach(c=>{
   ctx.fillStyle="white";
   ctx.beginPath();
@@ -288,13 +294,8 @@ function draw(){
   ctx.fill();
  });
 
- // 바닥
  ctx.fillStyle="green";
  ctx.fillRect(0,H-50,W,50);
-
- // 플레이어
- if(invincible)
-  ctx.globalAlpha=0.5+Math.sin(Date.now()*0.02)*0.5;
 
  ctx.fillStyle="#ffcc99";
  ctx.beginPath();
@@ -311,9 +312,6 @@ function draw(){
  ctx.arc(player.x+30,player.y+35,10,0,Math.PI);
  ctx.stroke();
 
- ctx.globalAlpha=1;
-
- // 장애물
  obstacles.forEach(obj=>{
   if(obj.type==="tree"){
    ctx.fillStyle="#6b3e26";
@@ -332,7 +330,6 @@ function draw(){
   }
  });
 
- // 아이템
  items.forEach(it=>{
   ctx.fillStyle=it.type==="heart"?"red":"gold";
   ctx.beginPath();
@@ -347,7 +344,6 @@ function draw(){
  ctx.fillText("High:"+highScore,20,90);
 }
 
-/* ===== 루프 ===== */
 function loop(){
  update();
  draw();
